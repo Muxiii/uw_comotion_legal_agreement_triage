@@ -1,0 +1,253 @@
+{
+  "NDA": {
+    "nodes": [
+      {
+        "id": "nda-collect-baseline",
+        "title": "收集初稿与对家信息",
+        "office": "Legal",
+        "role": "Paralegal",
+        "materials": ["Draft NDA", "Counterparty Info"],
+        "note": "收集基线 NDA 模板与对方基本信息。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "nda-legal-review",
+        "title": "律师风险审阅",
+        "office": "Legal",
+        "role": "Attorney",
+        "materials": ["Reviewed Draft"],
+        "note": "审阅条款与风险，输出修订意见。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "nda-osp-sage",
+        "title": "OSP / SAGE 承办",
+        "office": "OSP / SAGE",
+        "role": "Contract Officer",
+        "materials": ["Routing form", "Signed NDA"],
+        "note": "若协议与科研/资助相关，由 OSP/SAGE 主导流程。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "nda-next-internal",
+        "title": "内部后续流转",
+        "office": "依项目归口部门",
+        "role": "PM / Admin",
+        "materials": ["内部签核表"],
+        "note": "标准 NDA 路径完成律所审阅后的内部步骤。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "nda-som-data",
+        "title": "医学院数据协议",
+        "office": "School of Medicine",
+        "role": "Data Agreement Admin",
+        "materials": ["Data use description", "IRB 或合规批件（如需）"],
+        "note": "涉及医学数据但无资助项目时，走医学院数据协议路径。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "nda-comotion-ip",
+        "title": "CoMotion 知识产权 NDA",
+        "office": "CoMotion",
+        "role": "IP / Innovation",
+        "materials": ["Invention disclosure", "NDA draft"],
+        "note": "涉及技术披露、成果或创新合作时由 CoMotion 处理。",
+        "extendable_fields": {}
+      }
+    ],
+    "edges": [
+      {
+        "from": "nda-collect-baseline",
+        "to": "nda-legal-review",
+        "condition": null
+      },
+      {
+        "from": "nda-legal-review",
+        "to": "nda-osp-sage",
+        "condition": "NDA 与科研/资助相关，OSP/SAGE 为归口办公室"
+      },
+      {
+        "from": "nda-legal-review",
+        "to": "nda-next-internal",
+        "condition": null
+      },
+      {
+        "from": "nda-legal-review",
+        "to": "nda-som-data",
+        "condition": "属医学院数据协议且不涉及资助项目"
+      },
+      {
+        "from": "nda-legal-review",
+        "to": "nda-comotion-ip",
+        "condition": "涉及技术披露或知识产权/创新合作"
+      }
+    ]
+  },
+  "DTUA": {
+    "nodes": [
+      {
+        "id": "dtua-initial",
+        "title": "初筛与材料接收",
+        "office": "Central office",
+        "role": "Intake",
+        "materials": ["DTUA 请求表", "对方单位信息"],
+        "note": "检查材料完整性与数据类型。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "dtua-som-dean",
+        "title": "医学院院长办审阅",
+        "office": "SoM Dean's office",
+        "role": "Review",
+        "materials": ["患者数据说明"],
+        "note": "当涉及 UW Medicine 患者数据时必经。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "dtua-template",
+        "title": "使用校方模板",
+        "office": "Sponsored research / central",
+        "role": "Template",
+        "materials": ["Standard DTUA 模板"],
+        "note": "使用学校统一数据使用协议模板。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "dtua-sign",
+        "title": "双方签署",
+        "office": "PI / Department",
+        "role": "Signature",
+        "materials": ["双签版 PDF"],
+        "note": "主要签署步骤。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "dtua-patient-sign",
+        "title": "患者数据补充签署",
+        "office": "SoM / Privacy",
+        "role": "Compliance",
+        "materials": ["患者数据补充表"],
+        "note": "若材料含患者数据，需本节点完成后再完结。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "dtua-complete",
+        "title": "完成与归档",
+        "office": "Records",
+        "role": "Admin",
+        "materials": ["已签署终版"],
+        "note": "流程结束。",
+        "extendable_fields": {}
+      }
+    ],
+    "edges": [
+      {
+        "from": "dtua-initial",
+        "to": "dtua-template",
+        "condition": null
+      },
+      {
+        "from": "dtua-initial",
+        "to": "dtua-som-dean",
+        "condition": "涉及 UW Medicine 患者数据"
+      },
+      {
+        "from": "dtua-som-dean",
+        "to": "dtua-patient-sign",
+        "condition": "涉及患者数据"
+      },
+      {
+        "from": "dtua-template",
+        "to": "dtua-sign",
+        "condition": null
+      },
+      {
+        "from": "dtua-sign",
+        "to": "dtua-patient-sign",
+        "condition": "涉及患者数据"
+      },
+      {
+        "from": "dtua-patient-sign",
+        "to": "dtua-complete",
+        "condition": null
+      },
+      {
+        "from": "dtua-sign",
+        "to": "dtua-complete",
+        "condition": "不涉及患者数据"
+      }
+    ]
+  },
+  "CDA": {
+    "nodes": [
+      {
+        "id": "cda-start",
+        "title": "开始",
+        "office": "Intake",
+        "role": "Triage",
+        "materials": ["CDA 草案或说明"],
+        "note": "登记并识别协议类型。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "cda-route",
+        "title": "判定归口部门",
+        "office": "Central",
+        "role": "Routing",
+        "materials": ["协议类型说明"],
+        "note": "根据 NDA / CDA / DUA 等分支到不同办公室。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "cda-osp",
+        "title": "OSP / SAGE 路径",
+        "office": "OSP / SAGE",
+        "role": "Officer",
+        "materials": ["课题与资助信息（如适用）"],
+        "note": "与科研或资助相关时。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "cda-som",
+        "title": "医学院院长办 / DUA·DTUA",
+        "office": "SoM Dean's office",
+        "role": "Review",
+        "materials": ["DUA/DTUA 材料包"],
+        "note": "DUA/DTUA 及医学数据场景。",
+        "extendable_fields": {}
+      },
+      {
+        "id": "cda-comotion",
+        "title": "CoMotion 路径",
+        "office": "CoMotion",
+        "role": "Manager",
+        "materials": ["合作范围说明"],
+        "note": "一般 CDA 及创新合作。",
+        "extendable_fields": {}
+      }
+    ],
+    "edges": [
+      {
+        "from": "cda-start",
+        "to": "cda-route",
+        "condition": null
+      },
+      {
+        "from": "cda-route",
+        "to": "cda-osp",
+        "condition": "与科研/资助相关，归口 OSP/SAGE"
+      },
+      {
+        "from": "cda-route",
+        "to": "cda-som",
+        "condition": "DUA/DTUA 或医学院数据相关"
+      },
+      {
+        "from": "cda-route",
+        "to": "cda-comotion",
+        "condition": "属一般 CDA 或创新/商业合作"
+      }
+    ]
+  }
+}
