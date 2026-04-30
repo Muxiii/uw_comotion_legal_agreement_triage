@@ -32,7 +32,7 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 380,
+              "x": 381.2519986703105,
               "y": 80
             }
           }
@@ -112,14 +112,25 @@
             }
           }
         }
+      },
+      {
+        "id": "new-1777509134269",
+        "title": "新节点",
+        "office": "待补充",
+        "role": "待补充",
+        "materials": [],
+        "note": "",
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 1099.0239970243595,
+              "y": 12.745178660195421
+            }
+          }
+        }
       }
     ],
     "edges": [
-      {
-        "from": "nda-collect-baseline",
-        "to": "nda-legal-review",
-        "condition": null
-      },
       {
         "from": "nda-legal-review",
         "to": "nda-osp-sage",
@@ -138,6 +149,11 @@
       {
         "from": "nda-legal-review",
         "to": "nda-osp-sage",
+        "condition": null
+      },
+      {
+        "from": "nda-collect-baseline",
+        "to": "nda-legal-review",
         "condition": null
       }
     ]

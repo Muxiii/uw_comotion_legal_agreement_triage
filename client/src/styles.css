@@ -1,35 +1,263 @@
-* { box-sizing: border-box; font-family: Inter, sans-serif; }
-html, body, #root { margin: 0; height: 100%; }
+* { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Inter, sans-serif; }
+html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
+
+/* ===== 通用：卡片式按钮（不修改组件结构，由区域选择器约束） ===== */
+.app-shell button:not(.link) {
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.app-shell button:not(.link):hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+.app-shell button:not(.link):disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* 主操作：顶栏前几个 CTA 略强一点 */
+.app-shell .topbar > button:not(.link) {
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  border-color: #cbd5e1;
+}
+.app-shell .topbar > button:not(.link):hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+/* Tab：作为分段卡片按钮 */
+.app-shell .tabs > button {
+  padding: 0.45rem 0.9rem;
+  border-radius: 9px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.app-shell .tabs > button:hover:not(.active) {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+.app-shell .tabs > button.active {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+/* 侧栏：撤回小按钮 */
+.app-shell .op-item > button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 12px;
+  border: 1px solid #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+  box-shadow: 0 1px 2px rgba(190, 18, 60, 0.06);
+}
+.app-shell .op-item > button:hover {
+  background: #ffe4e6;
+  border-color: #fda4af;
+}
+
+/* 节点编辑：主按钮略强调 */
+.app-shell .node-edit-actions > button:not(.link) {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+}
+.app-shell .node-edit-actions > button:not(.link):hover {
+  background: #1e293b;
+  border-color: #1e293b;
+}
+
+/* 链式“取消”保持文字按钮，仅略增可点区域 */
+.app-shell button.link {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  text-decoration: underline;
+  color: #64748b;
+  font-weight: 500;
+}
+.app-shell button.link:hover {
+  color: #0f172a;
+  background: #f1f5f9;
+}
 
 .config-page { height: 100%; display: flex; align-items: center; justify-content: center; background: #f1f5f9; }
-.panel { width: 420px; background: white; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.panel { width: 420px; background: white; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04); }
 .panel h1 { margin: 0 0 8px; }
-.panel input, .panel select, .panel button { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
-.panel button { background: #0f172a; color: white; border: none; cursor: pointer; }
+.panel input, .panel select, .panel button { padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; }
+.panel button { background: #0f172a; color: white; border: none; cursor: pointer; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12); }
 
-.app-shell { height: 100%; display: flex; flex-direction: column; }
-.topbar { padding: 10px; border-bottom: 1px solid #e2e8f0; display: flex; gap: 10px; align-items: center; }
-.content { flex: 1; display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
-.main { display: flex; flex-direction: column; min-height: 0; }
-.tabs { display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid #e2e8f0; }
-.tabs button { padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; }
-.tabs button.active { background: #0f172a; color: #fff; border-color: #0f172a; }
-.flow-wrap { flex: 1; min-height: 400px; min-width: 0; }
-.sidebar { border-left: 1px solid #e2e8f0; padding: 12px; overflow: auto; }
-.op-item { display: flex; justify-content: space-between; gap: 8px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.app-shell {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px 16px;
+  gap: 12px;
+}
+
+.topbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+}
+.topbar input[type='file'] {
+  font-size: 12px;
+  padding: 0.4rem 0.6rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  max-width: 220px;
+}
+
+.content {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  min-height: 0;
+  gap: 12px;
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.flow-wrap {
+  flex: 1;
+  min-height: 400px;
+  min-width: 0;
+  background: #fafbfc;
+  border-top: 1px solid #f1f5f9;
+}
+
+.sidebar {
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  padding: 14px 16px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.op-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 12px;
+  margin-bottom: 10px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  align-items: flex-start;
+}
 .op-item p { margin: 6px 0 0; color: #334155; font-size: 13px; }
-.op-item button { border: 1px solid #fca5a5; background: #fff1f2; color: #be123c; border-radius: 6px; cursor: pointer; }
-.confirm-box { margin: 10px; padding: 10px; border: 1px solid #f59e0b; background: #fef3c7; border-radius: 8px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.error { margin: 10px; padding: 10px; border: 1px solid #ef4444; background: #fef2f2; color: #991b1b; border-radius: 8px; }
+.op-item strong { font-size: 13px; color: #0f172a; }
+
+.confirm-box {
+  padding: 12px 16px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.12);
+}
+
+.error {
+  padding: 12px 16px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 12px;
+  font-size: 14px;
+  box-shadow: 0 1px 4px rgba(239, 68, 68, 0.1);
+}
 
 .node-edit-panel {
   border-bottom: 1px solid #e2e8f0;
   margin-bottom: 12px;
-  padding-bottom: 12px;
+  padding-bottom: 14px;
+  background: #fafbfc;
+  margin: -4px -8px 12px;
+  padding: 12px 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
-.node-edit-panel h4 { margin: 0 0 8px; font-size: 14px; }
-.node-edit-panel label { display: block; font-size: 12px; color: #475569; margin-top: 6px; }
-.node-edit-panel input, .node-edit-panel textarea { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 12px; }
-.node-edit-actions { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
-.node-edit-actions .link { border: none; background: none; color: #64748b; cursor: pointer; text-decoration: underline; }
+.node-edit-panel h4 { margin: 0 0 10px; font-size: 14px; color: #0f172a; }
+.node-edit-panel label { display: block; font-size: 12px; color: #64748b; margin-top: 6px; font-weight: 500; }
+.node-edit-panel input, .node-edit-panel textarea { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; background: #fff; }
+.node-edit-panel input:focus, .node-edit-panel textarea:focus {
+  outline: none;
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+}
+.node-edit-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
 .hint { font-size: 12px; color: #64748b; line-height: 1.4; }
+
+.sidebar h3 { margin: 0 0 10px; font-size: 14px; color: #0f172a; }
+
+/* 画布内自定义节点 */
+.react-flow__node.selected .workflow-node-inner {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 0;
+}
+.workflow-node-inner {
+  min-height: 64px;
+  border-radius: 8px;
+  box-sizing: border-box;
+  padding: 0;
+}
+.workflow-node-inner > div {
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  user-select: none;
+  white-space: pre-line;
+  padding: 8px 10px;
+}
