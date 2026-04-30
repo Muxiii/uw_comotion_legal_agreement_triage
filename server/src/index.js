@@ -7,6 +7,7 @@ import { readWorkflows, writeWorkflows } from './workflowStore.js';
 import { analyzeOperationsByType, analyzeTypes } from './aiClient.js';
 import { applyOperations } from './operations.js';
 import { sessionStore } from './sessionStore.js';
+import { normalizeAllWorkflows } from './workflowNormalize.js';
 
 const app = express();
 const upload = multer();
@@ -36,6 +37,26 @@ app.get('/api/workflows', async (_req, res) => {
     res.json({ workflows, latestSession: sessionStore.latest });
   } catch (error) {
     res.status(500).json({ error: error.message || 'Failed to load workflows.' });
+  }
+});
+
+app.put('/api/workflow/:fileType', async (req, res) => {
+  try {
+    const { fileType } = req.params;
+    if (!fileType || typeof fileType !== 'string') {
+      return res.status(400).json({ error: 'Invalid fileType.' });
+    }
+    const { nodes, edges } = req.body || {};
+    if (!Array.isArray(nodes) || !Array.isArray(edges)) {
+      return res.status(400).json({ error: 'Request body must include nodes[] and edges[].' });
+    }
+    const workflows = await readWorkflows();
+    workflows[fileType] = { nodes, edges };
+    normalizeAllWorkflows(workflows);
+    await writeWorkflows(workflows);
+    res.json({ workflows, workflow: workflows[fileType] });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to save workflow.' });
   }
 });
 
