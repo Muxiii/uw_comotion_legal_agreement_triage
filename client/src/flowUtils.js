@@ -4,6 +4,7 @@ const DEFAULT_EDGE = {
   type: 'default',
   markerEnd: { type: MarkerType.ArrowClosed },
   reconnectable: true,
+  deletable: true,
   style: { strokeWidth: 1.5 },
   labelStyle: { fill: '#0f172a', fontSize: 12 },
 };
@@ -12,6 +13,16 @@ export function nodeLabel(n) {
   const title = n.title || n.id;
   const mats = Array.isArray(n.materials) && n.materials.length ? n.materials.join('、') : '（材料待列）';
   return `${title}\n${n.office || '—'} · ${n.role || '—'}\n材料：${mats}\n${n.note || ''}`.trim();
+}
+
+/** 与节点填充/描边色一致，供连接点样式用 */
+export function getWorkflowNodeClassName(domainNode, highlightIds = []) {
+  if (!domainNode?.id) return 'wf-node wf-node--std';
+  const isAuto = Boolean(domainNode.extendable_fields?.auto_created);
+  const h = highlightIds.includes(domainNode.id);
+  if (isAuto) return 'wf-node wf-node--auto';
+  if (h) return 'wf-node wf-node--hl';
+  return 'wf-node wf-node--std';
 }
 
 /**
@@ -57,6 +68,10 @@ export function workflowToFlowElements(workflow, highlights = []) {
       type: 'workflowNode',
       position,
       data: { label: nodeLabel(n), domain: n },
+      className: getWorkflowNodeClassName(n, highlights),
+      deletable: true,
+      selectable: true,
+      draggable: true,
       style: {
         width: 240,
         borderRadius: 8,

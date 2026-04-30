@@ -14,8 +14,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 331.6032608046486,
-              "y": -59.21267158200564
+              "x": 120,
+              "y": 70
             }
           }
         }
@@ -32,8 +32,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 381.2519986703105,
-              "y": 80
+              "x": 120,
+              "y": 250
             }
           }
         }
@@ -51,8 +51,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 735.8679682937948,
-              "y": 238.25215822668855
+              "x": 720,
+              "y": 442.3457844026044
             }
           }
         }
@@ -69,8 +69,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 1053.8360205021022,
-              "y": 213.5604167678125
+              "x": 119.58591286995966,
+              "y": 652.9953745674302
             }
           }
         }
@@ -89,7 +89,7 @@
           "ui": {
             "position": {
               "x": 120,
-              "y": 260
+              "y": 430
             }
           }
         }
@@ -107,24 +107,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 491.1565649650573,
-              "y": 348.4471592195081
-            }
-          }
-        }
-      },
-      {
-        "id": "new-1777509134269",
-        "title": "新节点",
-        "office": "待补充",
-        "role": "待补充",
-        "materials": [],
-        "note": "",
-        "extendable_fields": {
-          "ui": {
-            "position": {
-              "x": 1099.0239970243595,
-              "y": 12.745178660195421
+              "x": 420,
+              "y": 446.4610458701393
             }
           }
         }
@@ -133,27 +117,37 @@
     "edges": [
       {
         "from": "nda-legal-review",
-        "to": "nda-osp-sage",
-        "condition": "NDA 与科研/资助相关，OSP/SAGE 为归口办公室"
-      },
-      {
-        "from": "nda-legal-review",
         "to": "nda-som-data",
         "condition": "属医学院数据协议且不涉及资助项目"
       },
       {
+        "from": "nda-collect-baseline",
+        "to": "nda-legal-review",
+        "condition": null
+      },
+      {
         "from": "nda-legal-review",
         "to": "nda-comotion-ip",
-        "condition": "涉及技术披露或知识产权/创新合作"
+        "condition": null
       },
       {
         "from": "nda-legal-review",
         "to": "nda-osp-sage",
+        "condition": "NDA 与科研/资助相关，OSP/SAGE 为归口办公室"
+      },
+      {
+        "from": "nda-som-data",
+        "to": "nda-next-internal",
         "condition": null
       },
       {
-        "from": "nda-collect-baseline",
-        "to": "nda-legal-review",
+        "from": "nda-comotion-ip",
+        "to": "nda-next-internal",
+        "condition": null
+      },
+      {
+        "from": "nda-osp-sage",
+        "to": "nda-next-internal",
         "condition": null
       }
     ]
@@ -170,7 +164,14 @@
           "对方单位信息"
         ],
         "note": "检查材料完整性与数据类型。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 70
+            }
+          }
+        }
       },
       {
         "id": "dtua-som-dean",
@@ -181,7 +182,14 @@
           "患者数据说明"
         ],
         "note": "当涉及 UW Medicine 患者数据时必经。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 250
+            }
+          }
+        }
       },
       {
         "id": "dtua-template",
@@ -192,7 +200,14 @@
           "Standard DTUA 模板"
         ],
         "note": "使用学校统一数据使用协议模板。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 420,
+              "y": 250
+            }
+          }
+        }
       },
       {
         "id": "dtua-sign",
@@ -203,7 +218,14 @@
           "双签版 PDF"
         ],
         "note": "主要签署步骤。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 430
+            }
+          }
+        }
       },
       {
         "id": "dtua-patient-sign",
@@ -214,7 +236,14 @@
           "患者数据补充表"
         ],
         "note": "若材料含患者数据，需本节点完成后再完结。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 610
+            }
+          }
+        }
       },
       {
         "id": "dtua-complete",
@@ -225,7 +254,14 @@
           "已签署终版"
         ],
         "note": "流程结束。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 790
+            }
+          }
+        }
       }
     ],
     "edges": [
@@ -277,7 +313,14 @@
           "CDA 草案或说明"
         ],
         "note": "登记并识别协议类型。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 70
+            }
+          }
+        }
       },
       {
         "id": "cda-route",
@@ -288,7 +331,14 @@
           "协议类型说明"
         ],
         "note": "根据 NDA / CDA / DUA 等分支到不同办公室。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 250
+            }
+          }
+        }
       },
       {
         "id": "cda-osp",
@@ -299,7 +349,14 @@
           "课题与资助信息（如适用）"
         ],
         "note": "与科研或资助相关时。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 420,
+              "y": 430
+            }
+          }
+        }
       },
       {
         "id": "cda-som",
@@ -310,7 +367,14 @@
           "DUA/DTUA 材料包"
         ],
         "note": "DUA/DTUA 及医学数据场景。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 720,
+              "y": 430
+            }
+          }
+        }
       },
       {
         "id": "cda-comotion",
@@ -321,7 +385,14 @@
           "合作范围说明"
         ],
         "note": "一般 CDA 及创新合作。",
-        "extendable_fields": {}
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120,
+              "y": 430
+            }
+          }
+        }
       }
     ],
     "edges": [

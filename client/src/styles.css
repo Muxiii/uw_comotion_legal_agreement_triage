@@ -163,10 +163,11 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 }
 
 .flow-wrap {
+  --flow-canvas-bg: #fafbfc;
   flex: 1;
   min-height: 400px;
   min-width: 0;
-  background: #fafbfc;
+  background: var(--flow-canvas-bg);
   border-top: 1px solid #f1f5f9;
 }
 
@@ -260,4 +261,52 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   user-select: none;
   white-space: pre-line;
   padding: 8px 10px;
+}
+
+/* 连接点：8px 圆；填充=画布底；描边=对应节点外框颜色 */
+.flow-wrap .react-flow__node .react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  border-radius: 50% !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  background: var(--flow-canvas-bg) !important;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.flow-wrap .react-flow__node.wf-node--std .react-flow__handle {
+  border: 1px solid #64748b !important;
+  box-shadow: none !important;
+}
+.flow-wrap .react-flow__node.wf-node--auto .react-flow__handle {
+  border: 1px solid #94a3b8 !important;
+  box-shadow: none !important;
+}
+.flow-wrap .react-flow__node.wf-node--hl .react-flow__handle {
+  border: 1px solid #eab308 !important;
+  box-shadow: none !important;
+}
+
+.flow-wrap .react-flow__node .react-flow__handle.connecting,
+.flow-wrap .react-flow__node .react-flow__handle.valid {
+  background: var(--flow-canvas-bg) !important;
+  border: 1px solid #0ea5e9 !important;
+  box-shadow: none !important;
+}
+
+/* 圆心在上/下边的中心，无额外上下偏移 */
+.flow-wrap .react-flow__node .react-flow__handle-top {
+  top: 0 !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translate(-50%, -50%) !important;
+}
+.flow-wrap .react-flow__node .react-flow__handle-bottom {
+  bottom: 0 !important;
+  top: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translate(-50%, 50%) !important;
 }
