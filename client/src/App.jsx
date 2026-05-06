@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import ReactFlow, {
   Background,
   Panel,
@@ -19,6 +19,7 @@ import {
 } from './flowUtils.js';
 import aiChatIcon from './assets/icons/ai-chat-icon.svg';
 import operationHistoryIcon from './assets/icons/operation-history-icon.svg';
+import { WorkflowGraphContext } from './WorkflowGraphContext.jsx';
 
 const API_BASE = 'http://localhost:4000/api';
 const nodeTypes = { workflowNode: WorkflowNode };
@@ -46,7 +47,12 @@ const I18N = {
     saveNode: '保存到节点',
     cancel: '取消',
     hintEdit: '提示：先单击选中节点或连线，再按 Backspace 或 Delete 删除；拖拽连线端点可改接。',
-    hintIdle: '单击选中节点或边后按 Delete/Backspace 可删。双击节点编辑，双击连线编分支条件；从节点底部拖线到另一节点顶部可新连。',
+    hintIdle:
+      '单击节点在右侧编辑（需点保存才写入）；选中后节点右上角可删。双击连线编辑分支条件；从节点底部拖线到另一节点顶部可连接。',
+    deleteNodeConfirm: '确定删除该节点？相关连线也会被移除。',
+    discardChangesConfirm: '有未保存的修改，确定放弃吗？',
+    nodeIdLabel: '节点 ID',
+    deleteNodeShort: '删除节点',
     newNodeTitle: '新节点',
     pending: '待补充',
     chooseTypeFirst: '请至少勾选一个要新增的文件类型，再进行第二步。',
@@ -80,7 +86,12 @@ const I18N = {
     saveNode: 'Save Node',
     cancel: 'Cancel',
     hintEdit: 'Tip: select a node/edge, then press Backspace/Delete to remove; drag edge endpoints to reconnect.',
-    hintIdle: 'Select node/edge then Delete/Backspace to remove. Double-click node to edit; double-click edge to edit condition; drag from bottom handle to another node top handle to connect.',
+    hintIdle:
+      'Click a node to edit in the sidebar (Save to apply). Use × on the node when selected to delete. Double-click an edge to edit its condition; drag from the bottom handle to connect.',
+    deleteNodeConfirm: 'Delete this node? Connected edges will be removed.',
+    discardChangesConfirm: 'You have unsaved changes. Discard them?',
+    nodeIdLabel: 'Node ID',
+    deleteNodeShort: 'Delete node',
     newNodeTitle: 'New Node',
     pending: 'Pending',
     chooseTypeFirst: 'Please select at least one new file type before continuing to step 2.',
@@ -312,6 +323,8 @@ export default function App() {
   const [isResizing, setIsResizing] = useState(false);
 
   const [editNode, setEditNode] = useState(null);
+  /** 打开节点编辑时的表单快照，用于放弃修改 / 切换节点前对比 */
+  const [draftBaseline, setDraftBaseline] = useState(null);
   const workflowSigRef = useRef('');
   const workflowsRef = useRef(workflows);
   workflowsRef.current = workflows;
@@ -560,7 +573,9 @@ export default function App() {
     setNodes(n2);
     setEdges(e);
     setEditNode({ ...domain });
-    setForm({ title: t.newNodeTitle, office: t.pending, role: t.pending, note: '', materials: '' });
+    const baseline = { title: t.newNodeTitle, office: t.pending, role: t.pending, note: '', materials: '' };
+    setForm(baseline);
+    setDraftBaseline({ ...baseline });
     setTimeout(() => putWorkflow(n2, e), 0);
   }, [activeType, sessionHighlights, putWorkflow, rememberCurrentGraph, locale, t.newNodeTitle, t.pending]);
 
@@ -613,6 +628,7 @@ export default function App() {
 
   const onNodesDelete = useCallback(() => {
     setEditNode(null);
+    setDraftBaseline(null);
     setTimeout(() => putWorkflow(nodesRef.current, edgesRef.current), 0);
   }, [putWorkflow]);
 
@@ -636,21 +652,67 @@ export default function App() {
     [onEdgesChange, rememberCurrentGraph],
   );
 
-  const onNodeDoubleClick = useCallback(
+  const exitNodeEditor = useCallback(
+    (force = false) => {
+      if (editNode) {
+        const dirty =
+          draftBaseline != null && JSON.stringify(form) !== JSON.stringify(draftBaseline);
+        if (dirty && !force) {
+          if (!window.confirm(t.discardChangesConfirm)) return;
+        }
+      }
+      setEditNode(null);
+      setDraftBaseline(null);
+      setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    },
+    [editNode, draftBaseline, form, t.discardChangesConfirm, setNodes],
+  );
+
+  const onNodeClick = useCallback(
     (_evt, n) => {
       const d = n.data?.domain;
       if (!d) return;
-      setEditNode(d);
-      setForm({
-        title: d.title || '',
-        office: d.office || '',
-        role: d.role || '',
-        note: d.note || '',
-        materials: (d.materials || []).join('\n'),
-      });
+      if (editNode?.id === d.id) return;
+      const open = () => {
+        const nextForm = {
+          title: d.title || '',
+          office: d.office || '',
+          role: d.role || '',
+          note: d.note || '',
+          materials: (d.materials || []).join('\n'),
+        };
+        setEditNode(d);
+        setForm(nextForm);
+        setDraftBaseline({ ...nextForm });
+      };
+      if (editNode && editNode.id !== d.id) {
+        const dirty =
+          draftBaseline != null && JSON.stringify(form) !== JSON.stringify(draftBaseline);
+        if (dirty && !window.confirm(t.discardChangesConfirm)) return;
+      }
+      open();
     },
-    [setForm],
+    [editNode, draftBaseline, form, t.discardChangesConfirm],
   );
+
+  const requestDeleteNode = useCallback(
+    (nodeId) => {
+      if (!window.confirm(t.deleteNodeConfirm)) return;
+      rememberCurrentGraph(locale === 'zh' ? '删除节点' : 'Delete node');
+      setEditNode(null);
+      setDraftBaseline(null);
+      const nextNodes = nodesRef.current.filter((n) => n.id !== nodeId);
+      const nextEdges = edgesRef.current.filter((e) => e.source !== nodeId && e.target !== nodeId);
+      setNodes(nextNodes);
+      setEdges(nextEdges);
+      setTimeout(() => putWorkflow(nextNodes, nextEdges), 0);
+    },
+    [rememberCurrentGraph, locale, t.deleteNodeConfirm, putWorkflow, setNodes, setEdges],
+  );
+
+  const cancelNodeForm = useCallback(() => {
+    exitNodeEditor(false);
+  }, [exitNodeEditor]);
 
   const onEdgeDoubleClick = useCallback(
     (_evt, edge) => {
@@ -678,7 +740,7 @@ export default function App() {
       .filter(Boolean);
     setNodes((prev) => {
       const next = prev.map((rn) => {
-        if (rn.id !== targetId) return rn;
+        if (rn.id !== targetId) return { ...rn, selected: false };
         const d = { ...rn.data.domain };
         d.title = form.title.trim() || d.id;
         d.office = form.office.trim() || t.pending;
@@ -691,12 +753,14 @@ export default function App() {
         }
         return {
           ...rn,
+          selected: false,
           data: { ...rn.data, domain: d, label: nodeLabel(d, locale) },
         };
       });
       setTimeout(() => putWorkflow(next, edgesRef.current), 0);
       return next;
     });
+    setDraftBaseline(null);
     setEditNode(null);
   }, [editNode, form, putWorkflow, rememberCurrentGraph, locale, t.pending]);
 
@@ -729,6 +793,7 @@ export default function App() {
     historyRef.current[activeType] = arr;
     setUndoDepth(arr.length);
     setEditNode(null);
+    setDraftBaseline(null);
     const highlighted = applyHighlightToNodes(prev.nodes, activeType, sessionHighlights);
     setNodes(highlighted);
     setEdges(prev.edges);
@@ -749,6 +814,7 @@ export default function App() {
     redoRef.current[activeType] = stack;
     setRedoDepth(stack.length);
     setEditNode(null);
+    setDraftBaseline(null);
     const highlighted = applyHighlightToNodes(toRestore.nodes, activeType, sessionHighlights);
     setNodes(highlighted);
     setEdges(toRestore.edges);
@@ -765,6 +831,7 @@ export default function App() {
       redoRef.current[activeType] = [];
       setRedoDepth(0);
       setEditNode(null);
+      setDraftBaseline(null);
       const highlighted = applyHighlightToNodes(entry.snapshot.nodes, activeType, sessionHighlights);
       setNodes(highlighted);
       setEdges(entry.snapshot.edges);
@@ -912,7 +979,16 @@ export default function App() {
     }
   }
 
+  const workflowGraphUi = useMemo(
+    () => ({
+      requestDeleteNode,
+      deleteNodeButtonTitle: t.deleteNodeShort,
+    }),
+    [requestDeleteNode, t.deleteNodeShort],
+  );
+
   return (
+    <WorkflowGraphContext.Provider value={workflowGraphUi}>
     <div className="app-shell app-shell--smart">
       <header className="app-top-header">
         <div className="app-brand">
@@ -995,6 +1071,7 @@ export default function App() {
                   onClick={() => {
                     setActiveType(type);
                     setEditNode(null);
+                    setDraftBaseline(null);
                   }}
                 >
                   {type}
@@ -1029,10 +1106,10 @@ export default function App() {
                   onNodeDragStop={onNodeDragStop}
                   onNodesDelete={onNodesDelete}
                   onEdgesDelete={onEdgesDelete}
-                  onNodeDoubleClick={onNodeDoubleClick}
+                  onNodeClick={onNodeClick}
                   onEdgeDoubleClick={onEdgeDoubleClick}
                   onPaneClick={() => {
-                    setEditNode(null);
+                    exitNodeEditor(false);
                   }}
                   defaultEdgeOptions={{
                     type: 'default',
@@ -1079,26 +1156,91 @@ export default function App() {
         />
 
         <aside className="sidebar" style={{ width: `${sidebarWidth}px` }}>
-          <div className="side-tabs">
-            <button
-              type="button"
-              className={`side-tab ${rightTab === 'assistant' ? 'active' : ''}`}
-              onClick={() => setRightTab('assistant')}
-            >
-              <img src={aiChatIcon} alt="" className="side-tab-icon" width={20} height={20} />
-              <span>AI</span>
-            </button>
-            <button
-              type="button"
-              className={`side-tab ${rightTab === 'history' ? 'active' : ''}`}
-              onClick={() => setRightTab('history')}
-            >
-              <img src={operationHistoryIcon} alt="" className="side-tab-icon" width={20} height={20} />
-              <span>{locale === 'zh' ? '操作历史' : 'History'}</span>
-            </button>
-          </div>
+          {editNode ? (
+            <div className="node-edit-sidebar">
+              <h3 className="node-edit-sidebar-title">{t.editNode}</h3>
+              <p className="node-edit-sidebar-id">
+                <span className="node-edit-id-label">{t.nodeIdLabel}</span>{' '}
+                <span className="node-edit-id-value">{editNode.id}</span>
+              </p>
+              <div className="node-edit-panel node-edit-panel--sidebar">
+                <label htmlFor="node-field-title">
+                  {t.title}
+                  <input
+                    id="node-field-title"
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    autoComplete="off"
+                  />
+                </label>
+                <label htmlFor="node-field-office">
+                  {t.office}
+                  <input
+                    id="node-field-office"
+                    value={form.office}
+                    onChange={(e) => setForm((f) => ({ ...f, office: e.target.value }))}
+                    autoComplete="off"
+                  />
+                </label>
+                <label htmlFor="node-field-role">
+                  {t.role}
+                  <input
+                    id="node-field-role"
+                    value={form.role}
+                    onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+                    autoComplete="off"
+                  />
+                </label>
+                <label htmlFor="node-field-materials">
+                  {t.materials}
+                  <textarea
+                    id="node-field-materials"
+                    rows={4}
+                    value={form.materials}
+                    onChange={(e) => setForm((f) => ({ ...f, materials: e.target.value }))}
+                  />
+                </label>
+                <label htmlFor="node-field-note">
+                  {t.note}
+                  <textarea
+                    id="node-field-note"
+                    rows={3}
+                    value={form.note}
+                    onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="node-edit-actions">
+                <button type="button" className="link" onClick={cancelNodeForm}>
+                  {t.cancel}
+                </button>
+                <button type="button" onClick={applyNodeForm}>
+                  {t.saveNode}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="side-tabs">
+                <button
+                  type="button"
+                  className={`side-tab ${rightTab === 'assistant' ? 'active' : ''}`}
+                  onClick={() => setRightTab('assistant')}
+                >
+                  <img src={aiChatIcon} alt="" className="side-tab-icon" width={20} height={20} />
+                  <span>AI</span>
+                </button>
+                <button
+                  type="button"
+                  className={`side-tab ${rightTab === 'history' ? 'active' : ''}`}
+                  onClick={() => setRightTab('history')}
+                >
+                  <img src={operationHistoryIcon} alt="" className="side-tab-icon" width={20} height={20} />
+                  <span>{locale === 'zh' ? '操作历史' : 'History'}</span>
+                </button>
+              </div>
 
-          {rightTab === 'assistant' ? (
+              {rightTab === 'assistant' ? (
             <div className="assistant-panel">
               <div className="chat-list">
                 {chatMessages.length === 0 && (
@@ -1186,36 +1328,39 @@ export default function App() {
                 </p>
               )}
             </div>
-          ) : (
-            <div className="history-panel">
-              <h3 className="history-panel-title">{locale === 'zh' ? '最近10步操作' : 'Recent 10 edits'}</h3>
-              {(historyRef.current[activeType] || []).length === 0 ? (
-                <div className="history-empty">
-                  <div className="history-empty-illu" aria-hidden>
-                    <img src={operationHistoryIcon} alt="" width={56} height={56} className="history-empty-icon" />
-                  </div>
-                  <p className="history-empty-text">{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>
-                  <p className="history-empty-hint">
-                    {locale === 'zh' ? '在画布上编辑节点或连线后，可在此回退。' : 'Canvas edits will show up here for quick rollback.'}
-                  </p>
-                </div>
               ) : (
-                <div className="history-entries">
-                  {[...(historyRef.current[activeType] || [])]
-                    .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
-                    .reverse()
-                    .map(({ entry, idx, seq }) => (
-                      <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
-                        <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
-                        <small>{entry.label}</small>
-                      </button>
-                    ))}
+                <div className="history-panel">
+                  <h3 className="history-panel-title">{locale === 'zh' ? '最近10步操作' : 'Recent 10 edits'}</h3>
+                  {(historyRef.current[activeType] || []).length === 0 ? (
+                    <div className="history-empty">
+                      <div className="history-empty-illu" aria-hidden>
+                        <img src={operationHistoryIcon} alt="" width={56} height={56} className="history-empty-icon" />
+                      </div>
+                      <p className="history-empty-text">{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>
+                      <p className="history-empty-hint">
+                        {locale === 'zh' ? '在画布上编辑节点或连线后，可在此回退。' : 'Canvas edits will show up here for quick rollback.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="history-entries">
+                      {[...(historyRef.current[activeType] || [])]
+                        .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
+                        .reverse()
+                        .map(({ entry, idx, seq }) => (
+                          <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
+                            <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
+                            <small>{entry.label}</small>
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </aside>
       </div>
     </div>
+    </WorkflowGraphContext.Provider>
   );
 }
