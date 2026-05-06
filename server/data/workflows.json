@@ -14,7 +14,7 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 120,
+              "x": 115,
               "y": 70
             }
           }
@@ -70,7 +70,7 @@
           "ui": {
             "position": {
               "x": 120,
-              "y": 790
+              "y": 610
             }
           }
         }
@@ -125,8 +125,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 120.00000000000006,
-              "y": 982.3640872814806
+              "x": 120,
+              "y": 790
             }
           }
         }
@@ -191,7 +191,7 @@
           "ui": {
             "position": {
               "x": 120,
-              "y": 70
+              "y": 68.41045045045047
             }
           }
         }
@@ -416,6 +416,24 @@
             }
           }
         }
+      },
+      {
+        "id": "cda-legal-review",
+        "title": "Legal Office Review",
+        "office": "Legal Office",
+        "role": "Legal Counsel",
+        "materials": [
+          "Final CDA Document"
+        ],
+        "note": "Conduct a thorough legal review of the CDA.",
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 122,
+              "y": 626.6820122249779
+            }
+          }
+        }
       }
     ],
     "edges": [
@@ -438,6 +456,11 @@
         "from": "cda-route",
         "to": "cda-comotion",
         "condition": "属一般 CDA 或创新/商业合作"
+      },
+      {
+        "from": "cda-comotion",
+        "to": "cda-legal-review",
+        "condition": null
       }
     ]
   }

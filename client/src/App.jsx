@@ -1174,17 +1174,30 @@ export default function App() {
             </div>
           ) : (
             <div className="history-panel">
-              <h3>{locale === 'zh' ? '最近10步操作' : 'Recent 10 edits'}</h3>
-              {(historyRef.current[activeType] || []).length === 0 && <p>{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>}
-              {[...(historyRef.current[activeType] || [])]
-                .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
-                .reverse()
-                .map(({ entry, idx, seq }) => (
-                  <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
-                    <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
-                    <small>{entry.label}</small>
-                  </button>
-                ))}
+              <h3 className="history-panel-title">{locale === 'zh' ? '最近10步操作' : 'Recent 10 edits'}</h3>
+              {(historyRef.current[activeType] || []).length === 0 ? (
+                <div className="history-empty">
+                  <div className="history-empty-illu" aria-hidden>
+                    <img src={operationHistoryIcon} alt="" width={56} height={56} className="history-empty-icon" />
+                  </div>
+                  <p className="history-empty-text">{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>
+                  <p className="history-empty-hint">
+                    {locale === 'zh' ? '在画布上编辑节点或连线后，可在此回退。' : 'Canvas edits will show up here for quick rollback.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="history-entries">
+                  {[...(historyRef.current[activeType] || [])]
+                    .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
+                    .reverse()
+                    .map(({ entry, idx, seq }) => (
+                      <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
+                        <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
+                        <small>{entry.label}</small>
+                      </button>
+                    ))}
+                </div>
+              )}
             </div>
           )}
         </aside>

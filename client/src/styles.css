@@ -338,7 +338,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: 0;
   min-height: 0;
 }
 
@@ -348,9 +348,11 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--ink-200);
-  box-shadow: var(--shadow-sm);
+  border-left: none;
+  border-right: none;
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -385,6 +387,11 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   background-image: radial-gradient(circle, var(--ink-200) 1px, transparent 1px);
   background-size: 20px 20px;
   position: relative;
+  border-radius: 0;
+}
+
+.flow-wrap .react-flow {
+  border-radius: 0 !important;
 }
 
 .canvas-card .flow-wrap {
@@ -457,10 +464,11 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
 }
 
 .splitter {
-  width: 8px;
+  flex-shrink: 0;
+  width: 3px;
   cursor: col-resize;
-  margin: 0 2px;
-  border-radius: 8px;
+  margin: 0;
+  border-radius: 0;
   background: var(--ink-200);
   transition: background 0.12s ease;
 }
@@ -471,16 +479,23 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
 
 .side-tabs {
   display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 4px;
+  background: var(--ink-100);
+  border-radius: 10px;
 }
 
-/* 右侧 AI / 历史 Tab：无默认按钮边框与阴影，悬浮略加深 */
+/* 右侧 AI / 历史 Tab：分段样式，两项等宽对齐 */
 .app-shell .side-tabs .side-tab {
+  flex: 1;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 0.4rem 0.65rem;
+  padding: 0.45rem 0.5rem;
   border: none;
   box-shadow: none;
   background: transparent;
@@ -488,6 +503,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   font-size: 13px;
   font-weight: 500;
   color: var(--ink-700);
+  min-width: 0;
 }
 .app-shell .side-tabs .side-tab .side-tab-icon {
   flex-shrink: 0;
@@ -518,6 +534,69 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   height: 100%;
 }
 
+.history-panel-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
+}
+
+.history-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 20px 48px;
+  min-height: 220px;
+}
+
+.history-empty-illu {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--purple-50);
+  border: 1px dashed var(--purple-200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.history-empty-icon {
+  display: block;
+  opacity: 0.85;
+}
+
+.history-empty-text {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-500);
+  line-height: 1.45;
+  max-width: 240px;
+}
+
+.history-empty-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--ink-400);
+  line-height: 1.45;
+  max-width: 260px;
+}
+
+.history-entries {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
+}
+
 .chat-list {
   border: 1px solid var(--ink-200);
   border-radius: 8px;
@@ -530,20 +609,38 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
 
 .chat-msg {
   border-radius: 8px;
-  padding: 8px;
-  margin-bottom: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  border: none;
+  box-shadow: none;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-900);
+}
+.chat-msg:last-child {
+  margin-bottom: 0;
 }
 .chat-msg.user {
-  background: var(--purple-700);
-  color: #fff;
+  background: #f0f5fe;
+  color: var(--ink-900);
+}
+.chat-msg.user strong {
+  color: var(--ink-800);
+  font-weight: 600;
 }
 .chat-msg.assistant {
-  background: #e8f4fc;
-  border: 1px solid #c5e3f6;
+  background: transparent;
+  border: none;
+}
+.chat-msg.assistant strong {
+  color: var(--ink-700);
+  font-weight: 600;
 }
 .chat-msg p {
-  margin: 6px 0 0;
+  margin: 10px 0 0;
   white-space: pre-wrap;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .chat-composer {
@@ -670,7 +767,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
 .node-edit-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
 .hint { font-size: 12px; color: var(--ink-500); line-height: 1.4; }
 
-.sidebar h3 { margin: 0 0 10px; font-size: 14px; color: var(--ink-900); }
+.sidebar h3:not(.history-panel-title) { margin: 0 0 10px; font-size: 14px; color: var(--ink-900); }
 
 /* 画布内自定义节点 */
 .react-flow__node.selected .workflow-node-inner {
