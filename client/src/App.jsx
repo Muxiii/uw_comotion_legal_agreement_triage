@@ -63,6 +63,7 @@ const I18N = {
     triageBuilder: '流程构建',
     fitView: '适应画布',
     redo: '重做',
+    chatEmptyHint: '可以通过对话直接修改工作流，AI会自动识别需要修改的流程并更新到画布。',
   },
   en: {
     uploadAnalyze: 'Upload & Analyze',
@@ -102,6 +103,8 @@ const I18N = {
     triageBuilder: 'Triage Builder',
     fitView: 'Fit view',
     redo: 'Redo',
+    chatEmptyHint:
+      'Modify the workflow through chat—the AI will detect what needs to change and update the canvas.',
   },
 };
 
@@ -1244,11 +1247,12 @@ export default function App() {
             <div className="assistant-panel">
               <div className="chat-list">
                 {chatMessages.length === 0 && (
-                  <p className="hint">
-                    {locale === 'zh'
-                      ? '可以和 AI 对话：普通聊天会直接回复；涉及流程修改会自动识别并更新工作流。'
-                      : 'Chat with AI: normal chat gets direct responses; workflow-edit intent triggers workflow updates.'}
-                  </p>
+                  <div className="history-empty assistant-chat-empty" aria-live="polite">
+                    <div className="history-empty-illu" aria-hidden>
+                      <img src={aiChatIcon} alt="" width={56} height={56} className="history-empty-icon" />
+                    </div>
+                    <p className="history-empty-text">{t.chatEmptyHint}</p>
+                  </div>
                 )}
                 {chatMessages.map((m, idx) => (
                   <div key={`${m.role}-${idx}`} className={`chat-msg ${m.role}`}>

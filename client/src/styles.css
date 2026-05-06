@@ -605,6 +605,14 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   min-height: 160px;
   flex: 1;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* AI 对话空状态：与操作历史空状态同一套排版，略压缩高度以适配聊天框 */
+.assistant-chat-empty {
+  min-height: 200px;
+  padding: 28px 16px 36px;
 }
 
 .chat-msg {
