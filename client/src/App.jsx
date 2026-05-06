@@ -53,6 +53,8 @@ const I18N = {
     discardChangesConfirm: '有未保存的修改，确定放弃吗？',
     nodeIdLabel: '节点 ID',
     deleteNodeShort: '删除节点',
+    deleteNode: '删除',
+    deleteNodeConfirmAgain: '再次确认删除该节点？此操作无法撤销。',
     newNodeTitle: '新节点',
     pending: '待补充',
     chooseTypeFirst: '请至少勾选一个要新增的文件类型，再进行第二步。',
@@ -93,6 +95,8 @@ const I18N = {
     discardChangesConfirm: 'You have unsaved changes. Discard them?',
     nodeIdLabel: 'Node ID',
     deleteNodeShort: 'Delete node',
+    deleteNode: 'Delete',
+    deleteNodeConfirmAgain: 'Confirm again to delete this node? This cannot be undone.',
     newNodeTitle: 'New Node',
     pending: 'Pending',
     chooseTypeFirst: 'Please select at least one new file type before continuing to step 2.',
@@ -698,9 +702,8 @@ export default function App() {
     [editNode, draftBaseline, form, t.discardChangesConfirm],
   );
 
-  const requestDeleteNode = useCallback(
+  const performDeleteNode = useCallback(
     (nodeId) => {
-      if (!window.confirm(t.deleteNodeConfirm)) return;
       rememberCurrentGraph(locale === 'zh' ? '删除节点' : 'Delete node');
       setEditNode(null);
       setDraftBaseline(null);
@@ -710,8 +713,23 @@ export default function App() {
       setEdges(nextEdges);
       setTimeout(() => putWorkflow(nextNodes, nextEdges), 0);
     },
-    [rememberCurrentGraph, locale, t.deleteNodeConfirm, putWorkflow, setNodes, setEdges],
+    [rememberCurrentGraph, locale, putWorkflow, setNodes, setEdges],
   );
+
+  const requestDeleteNode = useCallback(
+    (nodeId) => {
+      if (!window.confirm(t.deleteNodeConfirm)) return;
+      performDeleteNode(nodeId);
+    },
+    [t.deleteNodeConfirm, performDeleteNode],
+  );
+
+  const deleteNodeFromSidebar = useCallback(() => {
+    if (!editNode?.id) return;
+    if (!window.confirm(t.deleteNodeConfirm)) return;
+    if (!window.confirm(t.deleteNodeConfirmAgain)) return;
+    performDeleteNode(editNode.id);
+  }, [editNode, t.deleteNodeConfirm, t.deleteNodeConfirmAgain, performDeleteNode]);
 
   const cancelNodeForm = useCallback(() => {
     exitNodeEditor(false);
@@ -1217,7 +1235,11 @@ export default function App() {
                 <button type="button" className="link" onClick={cancelNodeForm}>
                   {t.cancel}
                 </button>
-                <button type="button" onClick={applyNodeForm}>
+                <span className="node-edit-actions-spacer" aria-hidden />
+                <button type="button" className="node-edit-delete-btn" onClick={deleteNodeFromSidebar}>
+                  {t.deleteNode}
+                </button>
+                <button type="button" className="node-edit-save-btn" onClick={applyNodeForm}>
                   {t.saveNode}
                 </button>
               </div>
@@ -1334,30 +1356,31 @@ export default function App() {
             </div>
               ) : (
                 <div className="history-panel">
-                  <h3 className="history-panel-title">{locale === 'zh' ? '最近10步操作' : 'Recent 10 edits'}</h3>
-                  {(historyRef.current[activeType] || []).length === 0 ? (
-                    <div className="history-empty">
-                      <div className="history-empty-illu" aria-hidden>
-                        <img src={operationHistoryIcon} alt="" width={56} height={56} className="history-empty-icon" />
+                  <div className="chat-list">
+                    {(historyRef.current[activeType] || []).length === 0 ? (
+                      <div className="history-empty">
+                        <div className="history-empty-illu" aria-hidden>
+                          <img src={operationHistoryIcon} alt="" width={56} height={56} className="history-empty-icon" />
+                        </div>
+                        <p className="history-empty-text">{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>
+                        <p className="history-empty-hint">
+                          {locale === 'zh' ? '在画布上编辑节点或连线后，可在此回退。' : 'Canvas edits will show up here for quick rollback.'}
+                        </p>
                       </div>
-                      <p className="history-empty-text">{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>
-                      <p className="history-empty-hint">
-                        {locale === 'zh' ? '在画布上编辑节点或连线后，可在此回退。' : 'Canvas edits will show up here for quick rollback.'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="history-entries">
-                      {[...(historyRef.current[activeType] || [])]
-                        .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
-                        .reverse()
-                        .map(({ entry, idx, seq }) => (
-                          <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
-                            <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
-                            <small>{entry.label}</small>
-                          </button>
-                        ))}
-                    </div>
-                  )}
+                    ) : (
+                      <div className="history-entries">
+                        {[...(historyRef.current[activeType] || [])]
+                          .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
+                          .reverse()
+                          .map(({ entry, idx, seq }) => (
+                            <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
+                              <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
+                              <small>{entry.label}</small>
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </>

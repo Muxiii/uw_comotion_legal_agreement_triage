@@ -97,16 +97,28 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   border-color: #fda4af;
 }
 
-/* 节点编辑：主按钮略强调 */
-.app-shell .node-edit-actions > button:not(.link) {
+/* 节点编辑：保存为主按钮；删除为危险次要样式 */
+.app-shell .node-edit-actions > button.node-edit-save-btn {
   background: var(--purple-700);
   color: #fff;
   border-color: var(--purple-700);
   box-shadow: var(--shadow-md);
 }
-.app-shell .node-edit-actions > button:not(.link):hover {
+.app-shell .node-edit-actions > button.node-edit-save-btn:hover:not(:disabled) {
   background: var(--purple-800);
   border-color: var(--purple-800);
+}
+
+.app-shell .node-edit-actions > button.node-edit-delete-btn {
+  background: #fff;
+  color: #b91c1c;
+  border-color: #fecaca;
+  box-shadow: none;
+}
+.app-shell .node-edit-actions > button.node-edit-delete-btn:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
 }
 
 /* 链式“取消”保持文字按钮，仅略增可点区域 */
@@ -534,14 +546,6 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   height: 100%;
 }
 
-.history-panel-title {
-  margin: 0 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink-900);
-  letter-spacing: -0.01em;
-}
-
 .history-empty {
   flex: 1;
   display: flex;
@@ -854,9 +858,14 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   padding-top: 12px;
   border-top: 1px solid var(--ink-200);
 }
+
+.node-edit-actions-spacer {
+  flex: 1;
+  min-width: 4px;
+}
 .hint { font-size: 12px; color: var(--ink-500); line-height: 1.4; }
 
-.sidebar h3:not(.history-panel-title) { margin: 0 0 10px; font-size: 14px; color: var(--ink-900); }
+.sidebar h3:not(.node-edit-sidebar-title) { margin: 0 0 10px; font-size: 14px; color: var(--ink-900); }
 
 /* 画布内自定义节点 */
 .react-flow__node.selected .workflow-node-inner {
