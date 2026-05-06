@@ -21,7 +21,7 @@ import aiChatIcon from './assets/icons/ai-chat-icon.svg';
 import operationHistoryIcon from './assets/icons/operation-history-icon.svg';
 import { WorkflowGraphContext } from './WorkflowGraphContext.jsx';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:4000/api').replace(/\/$/, '');
 const nodeTypes = { workflowNode: WorkflowNode };
 const MAX_HISTORY = 10;
 const I18N = {
