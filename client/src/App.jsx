@@ -16,6 +16,8 @@ import {
   nodeLabel,
   getWorkflowNodeClassName,
 } from './flowUtils.js';
+import aiChatIcon from './assets/icons/ai-chat-icon.svg';
+import operationHistoryIcon from './assets/icons/operation-history-icon.svg';
 
 const API_BASE = 'http://localhost:4000/api';
 const nodeTypes = { workflowNode: WorkflowNode };
@@ -878,11 +880,21 @@ export default function App() {
 
         <aside className="sidebar" style={{ width: `${sidebarWidth}px` }}>
           <div className="side-tabs">
-            <button type="button" className={rightTab === 'assistant' ? 'active' : ''} onClick={() => setRightTab('assistant')}>
-              🤖 AI
+            <button
+              type="button"
+              className={`side-tab ${rightTab === 'assistant' ? 'active' : ''}`}
+              onClick={() => setRightTab('assistant')}
+            >
+              <img src={aiChatIcon} alt="" className="side-tab-icon" width={20} height={20} />
+              <span>AI</span>
             </button>
-            <button type="button" className={rightTab === 'history' ? 'active' : ''} onClick={() => setRightTab('history')}>
-              🕘 {locale === 'zh' ? '操作历史' : 'History'}
+            <button
+              type="button"
+              className={`side-tab ${rightTab === 'history' ? 'active' : ''}`}
+              onClick={() => setRightTab('history')}
+            >
+              <img src={operationHistoryIcon} alt="" className="side-tab-icon" width={20} height={20} />
+              <span>{locale === 'zh' ? '操作历史' : 'History'}</span>
             </button>
           </div>
 

@@ -238,6 +238,41 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   margin-bottom: 10px;
 }
 
+/* 右侧 AI / 历史 Tab：无默认按钮边框与阴影，悬浮略加深 */
+.app-shell .side-tabs .side-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.4rem 0.65rem;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+}
+.app-shell .side-tabs .side-tab .side-tab-icon {
+  flex-shrink: 0;
+  display: block;
+}
+.app-shell .side-tabs .side-tab:hover:not(:disabled):not(.active) {
+  background: rgba(31, 28, 42, 0.06);
+  border: none;
+  box-shadow: none;
+  color: var(--ink-900);
+}
+.app-shell .side-tabs .side-tab.active {
+  background: rgba(99, 48, 142, 0.1);
+  border: none;
+  box-shadow: none;
+  color: var(--purple-800);
+  font-weight: 600;
+}
+.app-shell .side-tabs .side-tab.active:hover:not(:disabled) {
+  background: rgba(99, 48, 142, 0.14);
+}
+
 .assistant-panel, .history-panel {
   display: flex;
   flex-direction: column;
