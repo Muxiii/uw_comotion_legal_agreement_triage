@@ -52,7 +52,7 @@
           "ui": {
             "position": {
               "x": 720,
-              "y": 442.3457844026044
+              "y": 430
             }
           }
         }
@@ -69,8 +69,8 @@
         "extendable_fields": {
           "ui": {
             "position": {
-              "x": 119.58591286995966,
-              "y": 652.9953745674302
+              "x": 120,
+              "y": 790
             }
           }
         }
@@ -108,7 +108,25 @@
           "ui": {
             "position": {
               "x": 420,
-              "y": 446.4610458701393
+              "y": 430
+            }
+          }
+        }
+      },
+      {
+        "id": "nda-lawyer-risk-review",
+        "title": "律师风险审阅",
+        "office": "Legal",
+        "role": "Attorney",
+        "materials": [
+          "Reviewed Draft"
+        ],
+        "note": "审阅条款与风险，输出修订意见。",
+        "extendable_fields": {
+          "ui": {
+            "position": {
+              "x": 120.00000000000006,
+              "y": 982.3640872814806
             }
           }
         }
@@ -148,6 +166,11 @@
       {
         "from": "nda-osp-sage",
         "to": "nda-next-internal",
+        "condition": null
+      },
+      {
+        "from": "nda-next-internal",
+        "to": "nda-lawyer-risk-review",
         "condition": null
       }
     ]

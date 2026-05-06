@@ -1,6 +1,35 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableOverloadError(error) {
+  const status = error?.status || error?.statusCode || error?.response?.status;
+  const msg = String(error?.message || '').toLowerCase();
+  return status === 429 || msg.includes('overloaded') || msg.includes('rate limit') || msg.includes('try again later');
+}
+
+async function withRetry(task, options = {}) {
+  const retries = options.retries ?? 3;
+  const baseDelayMs = options.baseDelayMs ?? 1200;
+  let lastError;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await task(attempt);
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableOverloadError(error) || attempt === retries) break;
+      const waitMs = baseDelayMs * Math.pow(2, attempt);
+      await sleep(waitMs);
+    }
+  }
+
+  throw lastError;
+}
+
 function tryParseJson(raw) {
   return JSON.parse(raw);
 }
@@ -25,23 +54,23 @@ function extractJson(text) {
 
 async function callOpenAI(prompt, config) {
   const client = new OpenAI({ apiKey: config.apiKey });
-  const completion = await client.chat.completions.create({
+  const completion = await withRetry(() => client.chat.completions.create({
     model: config.model || 'gpt-4o-mini',
     temperature: 0,
     messages: [{ role: 'user', content: prompt }],
-  });
+  }));
 
   return completion.choices[0]?.message?.content || '{}';
 }
 
 async function callClaude(prompt, config) {
   const client = new Anthropic({ apiKey: config.apiKey });
-  const msg = await client.messages.create({
+  const msg = await withRetry(() => client.messages.create({
     model: config.model || 'claude-3-5-sonnet-latest',
     max_tokens: 3000,
     temperature: 0,
     messages: [{ role: 'user', content: prompt }],
-  });
+  }));
 
   return msg.content.map((c) => c.text || '').join('\n');
 }
@@ -52,21 +81,43 @@ async function callKimi(prompt, config) {
     baseURL: 'https://api.moonshot.ai/v1',
   });
 
-  const completion = await client.chat.completions.create({
-    model: config.model || 'moonshot-v1-auto',
-    temperature: 0,
-    messages: [{ role: 'user', content: prompt }],
-  });
+  const modelCandidates = config.model
+    ? [config.model]
+    : ['moonshot-v1-auto', 'moonshot-v1-32k', 'moonshot-v1-8k'];
 
-  return completion.choices[0]?.message?.content || '{}';
+  let lastError;
+  for (const modelName of modelCandidates) {
+    try {
+      const completion = await withRetry(() => client.chat.completions.create({
+        model: modelName,
+        temperature: 0,
+        messages: [{ role: 'user', content: prompt }],
+      }));
+      return completion.choices[0]?.message?.content || '{}';
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableOverloadError(error)) break;
+    }
+  }
+
+  throw lastError || new Error('Kimi request failed.');
 }
 
-export async function askJson(prompt, config) {
+async function callProviderText(prompt, config) {
   let text = '';
 
   if (config.provider === 'openai') text = await callOpenAI(prompt, config);
   if (config.provider === 'claude') text = await callClaude(prompt, config);
   if (config.provider === 'kimi') text = await callKimi(prompt, config);
+  return text || '';
+}
+
+export async function askText(prompt, config) {
+  return callProviderText(prompt, config);
+}
+
+export async function askJson(prompt, config) {
+  const text = await callProviderText(prompt, config);
 
   try {
     return extractJson(text || '{}');
@@ -77,9 +128,7 @@ Your previous response was not valid JSON.
 Return ONLY strict JSON. No explanation, no markdown, no prose.`;
 
     let repaired = '';
-    if (config.provider === 'openai') repaired = await callOpenAI(repairPrompt, config);
-    if (config.provider === 'claude') repaired = await callClaude(repairPrompt, config);
-    if (config.provider === 'kimi') repaired = await callKimi(repairPrompt, config);
+    repaired = await callProviderText(repairPrompt, config);
 
     return extractJson(repaired || '{}');
   }
@@ -92,7 +141,7 @@ export async function analyzeTypes(combinedText, workflows, config) {
 }
 
 export async function analyzeOperationsByType(type, combinedText, workflowForType, config) {
-  const nodeSpec = `Each node MUST be an object with:\n- id: string, short meaningful slug in English (e.g. nda-legal-review, sign-by-pi) — NOT random numbers like nda-3\n- title: string, 2-8 Chinese characters for human display (e.g. 律所审阅, 签字)\n- office: which office/department is responsible (中文)\n- role: role or sub-responsibility (中文)\n- materials: string[] — what materials to prepare for this step\n- note: brief description (中文)\n- extendable_fields: object (can be {} )`;
+  const nodeSpec = `Each node MUST be an object with:\n- id: string, short meaningful slug in English (e.g. nda-legal-review, sign-by-pi) — NOT random numbers like nda-3\n- title: string, concise human-readable title in English (e.g. Legal Review, Signature)\n- office: which office/department is responsible (English)\n- role: role or sub-responsibility (English)\n- materials: string[] — what materials to prepare for this step (English)\n- note: brief description (English)\n- extendable_fields: object (can be {} )`;
 
   const prompt = `You are an operations planner.
 
@@ -110,6 +159,7 @@ CRITICAL:
 - Prefer: insert all needed nodes first, then add branches.
 - If you add a new branch between existing node ids, both ids must already exist in the workflow.
 - When creating new steps, use descriptive id + title, not opaque ids.
+- Prefer English for title/office/role/materials/note and edge condition labels, unless the source document requires a specific non-English legal term.
 
 Existing workflow for this type:
 ${JSON.stringify(workflowForType || null, null, 2)}

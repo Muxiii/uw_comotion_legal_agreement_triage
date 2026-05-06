@@ -4,7 +4,7 @@ import multer from 'multer';
 import { ensureAiConfigInteractive, getAiConfig } from './config.js';
 import { extractTextFromFile } from './textExtract.js';
 import { readWorkflows, writeWorkflows } from './workflowStore.js';
-import { analyzeOperationsByType, analyzeTypes } from './aiClient.js';
+import { analyzeOperationsByType, analyzeTypes, askJson, askText } from './aiClient.js';
 import { applyOperations } from './operations.js';
 import { sessionStore } from './sessionStore.js';
 import { normalizeAllWorkflows } from './workflowNormalize.js';
@@ -14,6 +14,15 @@ const upload = multer();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+function normalizeApiErrorMessage(error, fallback) {
+  const msg = String(error?.message || '');
+  const lower = msg.toLowerCase();
+  if (lower.includes('429') || lower.includes('overloaded') || lower.includes('rate limit') || lower.includes('try again later')) {
+    return 'AI service is temporarily overloaded (429). Please retry in a few seconds.';
+  }
+  return msg || fallback;
+}
 
 function normalizeOperation(op, fileType) {
   if (!op || typeof op !== 'object') return null;
@@ -122,7 +131,104 @@ app.post('/api/analyze', upload.array('files'), async (req, res) => {
       requiresTypeConfirmation: false,
     });
   } catch (error) {
-    return res.status(500).json({ error: error.message || 'Failed to analyze.' });
+    return res.status(500).json({ error: normalizeApiErrorMessage(error, 'Failed to analyze.') });
+  }
+});
+
+app.post('/api/assistant', upload.array('files'), async (req, res) => {
+  try {
+    const aiConfig = getAiConfig();
+    const message = String(req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'message is required.' });
+
+    const files = req.files || [];
+    const fileTexts = await Promise.all(files.map((f) => extractTextFromFile(f)));
+    const filesText = fileTexts.join('\n\n---\n\n');
+
+    const intent = await askJson(
+      `Classify user intent for a workflow assistant.
+Return strict JSON:
+{ "intent": "chat|workflow_edit", "reason": string }
+
+User message:
+${message}
+
+Additional attached context text:
+${filesText.slice(0, 12000)}`,
+      aiConfig,
+    );
+
+    const intentType = intent?.intent === 'workflow_edit' ? 'workflow_edit' : 'chat';
+    if (intentType === 'chat') {
+      const reply = await askText(
+        `You are a concise assistant for legal workflow triage tool users.
+Answer naturally. If user asks for policy/legal judgment, state assumptions.
+
+User:
+${message}`,
+        aiConfig,
+      );
+      return res.json({ intent: 'chat', reply });
+    }
+
+    const workflows = await readWorkflows();
+    const baselineWorkflows = JSON.parse(JSON.stringify(workflows));
+    const combinedText = `${message}\n\n${filesText}`.trim().slice(0, 30000);
+
+    const step1 = await analyzeTypes(combinedText, workflows, aiConfig);
+    const targetTypes = [...(step1.existingTypes || []), ...(step1.newTypes || [])];
+    const operations = [];
+
+    for (const type of targetTypes) {
+      const step2 = await analyzeOperationsByType(type, combinedText, workflows[type], aiConfig);
+      for (const op of step2.operations || []) {
+        const normalized = normalizeOperation(op, type);
+        if (normalized) operations.push(normalized);
+      }
+    }
+
+    const { workflows: nextWorkflows, highlights, skippedOperations } = applyOperations(workflows, operations);
+    await writeWorkflows(nextWorkflows);
+
+    sessionStore.latest = {
+      id: `${Date.now()}`,
+      operations,
+      highlights,
+      skippedOperations,
+      newTypesDetected: step1.newTypes || [],
+      confirmedNewTypes: step1.newTypes || [],
+      baselineWorkflows,
+      createdAt: new Date().toISOString(),
+    };
+
+    let reply = '';
+    try {
+      reply = await askText(
+        `Summarize what workflow changes were applied in 3-6 bullet points.
+Use English.
+Operations:
+${JSON.stringify(operations, null, 2)}
+Skipped:
+${JSON.stringify(skippedOperations, null, 2)}`,
+        aiConfig,
+      );
+    } catch {
+      reply = operations.length
+        ? `Workflow updated with ${operations.length} operation(s).`
+        : 'No workflow operation was applied.';
+    }
+
+    return res.json({
+      intent: 'workflow_edit',
+      reply,
+      workflows: nextWorkflows,
+      operations,
+      highlights,
+      skippedOperations,
+      newTypesDetected: step1.newTypes || [],
+    });
+  } catch (error) {
+    return res.status(500).json({ error: normalizeApiErrorMessage(error, 'Assistant failed.') });
   }
 });
 

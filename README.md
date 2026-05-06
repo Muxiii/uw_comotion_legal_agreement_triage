@@ -31,3 +31,4 @@ npm run dev
 - `server/data/workflows.json`：工作流持久化文件
 - `server/src`：上传、文本提取、AI 调用、操作应用、撤回 API
 - `client/src`：React Flow 可视化 + 侧边栏
+- `SPEC.md`：当前功能规格说明（功能变更时必须同步更新）

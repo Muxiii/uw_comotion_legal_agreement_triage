@@ -9,10 +9,11 @@ const DEFAULT_EDGE = {
   labelStyle: { fill: '#0f172a', fontSize: 12 },
 };
 
-export function nodeLabel(n) {
+export function nodeLabel(n, locale = 'zh') {
   const title = n.title || n.id;
-  const mats = Array.isArray(n.materials) && n.materials.length ? n.materials.join('、') : '（材料待列）';
-  return `${title}\n${n.office || '—'} · ${n.role || '—'}\n材料：${mats}\n${n.note || ''}`.trim();
+  const mats = Array.isArray(n.materials) && n.materials.length ? n.materials.join(locale === 'zh' ? '、' : ', ') : locale === 'zh' ? '（材料待列）' : '(materials pending)';
+  const materialsLabel = locale === 'zh' ? '材料' : 'Materials';
+  return `${title}\n${n.office || '—'} · ${n.role || '—'}\n${materialsLabel}: ${mats}\n${n.note || ''}`.trim();
 }
 
 /** 与节点填充/描边色一致，供连接点样式用 */
@@ -28,7 +29,7 @@ export function getWorkflowNodeClassName(domainNode, highlightIds = []) {
 /**
  * 业务节点 → React Flow
  */
-export function workflowToFlowElements(workflow, highlights = []) {
+export function workflowToFlowElements(workflow, highlights = [], locale = 'zh') {
   const byId = new Map();
   (workflow?.nodes || []).forEach((n) => {
     if (n?.id) byId.set(n.id, n);
@@ -41,7 +42,7 @@ export function workflowToFlowElements(workflow, highlights = []) {
         office: '—',
         role: '—',
         materials: [],
-        note: '请补全节点信息',
+        note: locale === 'zh' ? '请补全节点信息' : 'Please complete node details',
         extendable_fields: { auto_created: true },
       });
     }
@@ -52,7 +53,7 @@ export function workflowToFlowElements(workflow, highlights = []) {
         office: '—',
         role: '—',
         materials: [],
-        note: '请补全节点信息',
+        note: locale === 'zh' ? '请补全节点信息' : 'Please complete node details',
         extendable_fields: { auto_created: true },
       });
     }
@@ -67,7 +68,7 @@ export function workflowToFlowElements(workflow, highlights = []) {
       id: n.id,
       type: 'workflowNode',
       position,
-      data: { label: nodeLabel(n), domain: n },
+      data: { label: nodeLabel(n, locale), domain: n },
       className: getWorkflowNodeClassName(n, highlights),
       deletable: true,
       selectable: true,

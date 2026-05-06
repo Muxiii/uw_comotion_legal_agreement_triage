@@ -20,6 +20,68 @@ import {
 const API_BASE = 'http://localhost:4000/api';
 const nodeTypes = { workflowNode: WorkflowNode };
 const MAX_HISTORY = 10;
+const I18N = {
+  zh: {
+    uploadAnalyze: '上传并分析',
+    addNode: '添加节点',
+    autoArrange: '自动整理节点',
+    undo: '撤销',
+    save: '保存当前流程',
+    saving: '保存中…',
+    analyzing: 'Analyzing...',
+    confirmContinue: '确认并继续第二步',
+    newTypesFound: '发现新文件类型：',
+    opList: '本次操作列表',
+    noOps: '暂无操作',
+    rollback: '撤回',
+    editNode: '编辑节点',
+    title: '标题 / 名称',
+    office: '负责 Office / 部门',
+    role: '岗位 / 角色',
+    materials: '需准备的材料（每行一项或用逗号分隔）',
+    note: '说明',
+    saveNode: '保存到节点',
+    cancel: '取消',
+    hintEdit: '提示：先单击选中节点或连线，再按 Backspace 或 Delete 删除；拖拽连线端点可改接。',
+    hintIdle: '单击选中节点或边后按 Delete/Backspace 可删。双击节点编辑，双击连线编分支条件；从节点底部拖线到另一节点顶部可新连。',
+    newNodeTitle: '新节点',
+    pending: '待补充',
+    chooseTypeFirst: '请至少勾选一个要新增的文件类型，再进行第二步。',
+    edgeConditionPrompt: '分支条件（可留空表示非条件边）',
+    zh: '中文',
+    en: 'English',
+  },
+  en: {
+    uploadAnalyze: 'Upload & Analyze',
+    addNode: 'Add Node',
+    autoArrange: 'Auto Arrange',
+    undo: 'Undo',
+    save: 'Save Workflow',
+    saving: 'Saving...',
+    analyzing: 'Analyzing...',
+    confirmContinue: 'Confirm and Continue Step 2',
+    newTypesFound: 'New file types detected:',
+    opList: 'Operations in This Session',
+    noOps: 'No operations yet',
+    rollback: 'Undo',
+    editNode: 'Edit Node',
+    title: 'Title',
+    office: 'Office / Department',
+    role: 'Role',
+    materials: 'Required materials (one per line or comma-separated)',
+    note: 'Note',
+    saveNode: 'Save Node',
+    cancel: 'Cancel',
+    hintEdit: 'Tip: select a node/edge, then press Backspace/Delete to remove; drag edge endpoints to reconnect.',
+    hintIdle: 'Select node/edge then Delete/Backspace to remove. Double-click node to edit; double-click edge to edit condition; drag from bottom handle to another node top handle to connect.',
+    newNodeTitle: 'New Node',
+    pending: 'Pending',
+    chooseTypeFirst: 'Please select at least one new file type before continuing to step 2.',
+    edgeConditionPrompt: 'Branch condition (leave empty for unconditional edge)',
+    zh: '中文',
+    en: 'English',
+  },
+};
 
 function cloneGraphSnapshot(nodes, edges) {
   return {
@@ -119,6 +181,16 @@ function applyHighlightToNodes(rfNodes, activeType, sessionHighlights) {
   });
 }
 
+async function readJsonSafe(res) {
+  const raw = await res.text();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const message = raw?.startsWith('<!DOCTYPE') ? 'Server returned non-JSON response.' : raw || 'Invalid JSON response.';
+    throw new Error(message);
+  }
+}
+
 export default function App() {
   const [workflows, setWorkflows] = useState({});
   const [sessionHighlights, setSessionHighlights] = useState({});
@@ -135,6 +207,16 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [undoDepth, setUndoDepth] = useState(0);
+  const [locale, setLocale] = useState('zh');
+  const [rightTab, setRightTab] = useState('assistant');
+  const [chatInput, setChatInput] = useState('');
+  const [chatFiles, setChatFiles] = useState([]);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [showUploadTools, setShowUploadTools] = useState(false);
+  const [assistantStage, setAssistantStage] = useState('');
+  const [sidebarWidth, setSidebarWidth] = useState(360);
+  const [isResizing, setIsResizing] = useState(false);
 
   const [editNode, setEditNode] = useState(null);
   const workflowSigRef = useRef('');
@@ -143,10 +225,35 @@ export default function App() {
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const historyRef = useRef({});
+  const uploadInputRef = useRef(null);
+  const stageTimerRef = useRef(null);
+  const resizeRef = useRef({ startX: 0, startWidth: 360 });
   nodesRef.current = nodes;
   edgesRef.current = edges;
 
   const [form, setForm] = useState({ title: '', office: '', role: '', note: '', materials: '' });
+  const t = I18N[locale];
+
+  const clearStageTimer = useCallback(() => {
+    if (stageTimerRef.current) {
+      clearInterval(stageTimerRef.current);
+      stageTimerRef.current = null;
+    }
+  }, []);
+
+  const startStageCycle = useCallback(
+    (steps) => {
+      clearStageTimer();
+      if (!steps || !steps.length) return;
+      let idx = 0;
+      setAssistantStage(steps[idx]);
+      stageTimerRef.current = setInterval(() => {
+        idx = Math.min(idx + 1, steps.length - 1);
+        setAssistantStage(steps[idx]);
+      }, 1500);
+    },
+    [clearStageTimer],
+  );
 
   const syncUndoDepth = useCallback(
     (type) => {
@@ -161,17 +268,24 @@ export default function App() {
       const t = type || activeType;
       if (!t) return;
       const arr = historyRef.current[t] || [];
-      arr.push(snapshot);
+      arr.push({
+        label: snapshot.label || (locale === 'zh' ? '画布编辑' : 'Canvas edit'),
+        at: Date.now(),
+        snapshot: snapshot.graph,
+      });
       if (arr.length > MAX_HISTORY) arr.shift();
       historyRef.current[t] = arr;
       if (t === activeType) setUndoDepth(arr.length);
     },
-    [activeType],
+    [activeType, locale],
   );
 
-  const rememberCurrentGraph = useCallback(() => {
+  const rememberCurrentGraph = useCallback((label) => {
     if (!activeType) return;
-    pushHistorySnapshot(activeType, cloneGraphSnapshot(nodesRef.current, edgesRef.current));
+    pushHistorySnapshot(activeType, {
+      label,
+      graph: cloneGraphSnapshot(nodesRef.current, edgesRef.current),
+    });
   }, [activeType, pushHistorySnapshot]);
 
   const refreshCanvasFromWorkflow = useCallback(
@@ -183,12 +297,12 @@ export default function App() {
         return;
       }
       const h = sessionHighlights[activeType] || [];
-      const { nodes: n, edges: e } = workflowToFlowElements(wf, h);
+      const { nodes: n, edges: e } = workflowToFlowElements(wf, h, locale);
       setNodes(applyHighlightToNodes(n, activeType, sessionHighlights));
       setEdges(e);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅在外部工作流或 Tab 变化时由调用方显式使用
-    [activeType, sessionHighlights, setNodes, setEdges],
+    [activeType, sessionHighlights, setNodes, setEdges, locale],
   );
 
   const putWorkflow = useCallback(
@@ -203,7 +317,7 @@ export default function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nodes: w.nodes, edges: w.edges }),
         });
-        const data = await res.json();
+        const data = await readJsonSafe(res);
         if (!res.ok) throw new Error(data.error || 'Save failed');
         setWorkflows(data.workflows || {});
         workflowSigRef.current = JSON.stringify(data.workflow || {});
@@ -220,7 +334,7 @@ export default function App() {
 
   useEffect(() => {
     fetch(`${API_BASE}/workflows`)
-      .then((r) => r.json())
+      .then((r) => readJsonSafe(r))
       .then((data) => {
         setWorkflows(data.workflows || {});
         historyRef.current = {};
@@ -256,15 +370,70 @@ export default function App() {
     setNodes((prev) => applyHighlightToNodes(prev, activeType, sessionHighlights));
   }, [sessionHighlights, activeType, setNodes]);
 
+  useEffect(() => {
+    setNodes((prev) =>
+      prev.map((n) => {
+        const d = n.data?.domain;
+        if (!d) return n;
+        return { ...n, data: { ...n.data, label: nodeLabel(d, locale) } };
+      }),
+    );
+  }, [locale, setNodes]);
+
+  useEffect(() => {
+    if (!assistantLoading) return;
+    startStageCycle(
+      chatFiles.length > 0
+        ? [
+            locale === 'zh' ? '正在读取上传文件…' : 'Reading uploaded files...',
+            locale === 'zh' ? '正在判断意图…' : 'Classifying intent...',
+            locale === 'zh' ? '正在生成/更新工作流…' : 'Generating/updating workflow...',
+          ]
+        : [
+            locale === 'zh' ? '正在判断意图…' : 'Classifying intent...',
+            locale === 'zh' ? '正在生成回复…' : 'Generating response...',
+          ],
+    );
+    return () => clearStageTimer();
+  }, [assistantLoading, locale, chatFiles.length, startStageCycle, clearStageTimer]);
+
+  useEffect(() => {
+    if (!loading) return;
+    startStageCycle([
+      locale === 'zh' ? '正在分析文件…' : 'Analyzing files...',
+      locale === 'zh' ? '正在识别文件类型…' : 'Detecting file types...',
+      locale === 'zh' ? '正在生成工作流变更…' : 'Generating workflow updates...',
+    ]);
+    return () => clearStageTimer();
+  }, [loading, locale, startStageCycle, clearStageTimer]);
+
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (!isResizing) return;
+      const delta = e.clientX - resizeRef.current.startX;
+      const next = Math.max(300, Math.min(760, resizeRef.current.startWidth - delta));
+      setSidebarWidth(next);
+    };
+    const onMouseUp = () => setIsResizing(false);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isResizing]);
+
+  useEffect(() => () => clearStageTimer(), [clearStageTimer]);
+
   const addManualNode = useCallback(() => {
     if (!activeType) return;
-    rememberCurrentGraph();
+    rememberCurrentGraph(locale === 'zh' ? '添加节点' : 'Add node');
     const id = `new-${Date.now()}`;
     const domain = {
       id,
-      title: '新节点',
-      office: '待补充',
-      role: '待补充',
+      title: t.newNodeTitle,
+      office: t.pending,
+      role: t.pending,
       materials: [],
       note: '',
       extendable_fields: {},
@@ -273,19 +442,19 @@ export default function App() {
       nodes: [...(workflowsRef.current[activeType]?.nodes || []), domain],
       edges: [...(workflowsRef.current[activeType]?.edges || [])],
     };
-    const { nodes: n, edges: e } = workflowToFlowElements(merged, sessionHighlights[activeType] || []);
+    const { nodes: n, edges: e } = workflowToFlowElements(merged, sessionHighlights[activeType] || [], locale);
     const arranged = autoArrangeNodes(n, e);
     const n2 = applyHighlightToNodes(arranged, activeType, sessionHighlights);
     setNodes(n2);
     setEdges(e);
     setEditNode({ ...domain });
-    setForm({ title: '新节点', office: '待补充', role: '待补充', note: '', materials: '' });
+    setForm({ title: t.newNodeTitle, office: t.pending, role: t.pending, note: '', materials: '' });
     setTimeout(() => putWorkflow(n2, e), 0);
-  }, [activeType, sessionHighlights, putWorkflow, rememberCurrentGraph]);
+  }, [activeType, sessionHighlights, putWorkflow, rememberCurrentGraph, locale, t.newNodeTitle, t.pending]);
 
   const onConnect = useCallback(
     (params) => {
-      rememberCurrentGraph();
+      rememberCurrentGraph(locale === 'zh' ? '新增连线' : 'Add edge');
       setEdges((eds) => {
         const next = addEdge(
           {
@@ -308,7 +477,7 @@ export default function App() {
 
   const onReconnect = useCallback(
     (oldEdge, newConnection) => {
-      rememberCurrentGraph();
+      rememberCurrentGraph(locale === 'zh' ? '改接连线' : 'Reconnect edge');
       setEdges((eds) => {
         const next = reconnectEdge(oldEdge, newConnection, eds, { shouldReplaceId: true });
         setTimeout(() => putWorkflow(nodesRef.current, next), 0);
@@ -341,7 +510,7 @@ export default function App() {
 
   const onNodesChangeWithHistory = useCallback(
     (changes) => {
-      if (changes.some((c) => c.type === 'remove')) rememberCurrentGraph();
+      if (changes.some((c) => c.type === 'remove')) rememberCurrentGraph(locale === 'zh' ? '删除节点' : 'Delete node');
       onNodesChange(changes);
     },
     [onNodesChange, rememberCurrentGraph],
@@ -349,7 +518,7 @@ export default function App() {
 
   const onEdgesChangeWithHistory = useCallback(
     (changes) => {
-      if (changes.some((c) => c.type === 'remove')) rememberCurrentGraph();
+      if (changes.some((c) => c.type === 'remove')) rememberCurrentGraph(locale === 'zh' ? '删除连线' : 'Delete edge');
       onEdgesChange(changes);
     },
     [onEdgesChange, rememberCurrentGraph],
@@ -374,9 +543,9 @@ export default function App() {
   const onEdgeDoubleClick = useCallback(
     (_evt, edge) => {
       const current = edge.data?.condition != null && edge.data?.condition !== '' ? String(edge.data.condition) : (edge.label && String(edge.label)) || '';
-      const value = window.prompt('分支条件（可留空表示非条件边）', current);
+      const value = window.prompt(t.edgeConditionPrompt, current);
       if (value === null) return;
-      rememberCurrentGraph();
+      rememberCurrentGraph(locale === 'zh' ? '编辑分支条件' : 'Edit edge condition');
       const v = value.trim() || null;
       setEdges((eds) => {
         const next = eds.map((e) => (e.id === edge.id ? { ...e, data: { ...e.data, condition: v }, label: v || '' } : e));
@@ -384,12 +553,12 @@ export default function App() {
         return next;
       });
     },
-    [setEdges, putWorkflow, rememberCurrentGraph],
+    [setEdges, putWorkflow, rememberCurrentGraph, t.edgeConditionPrompt],
   );
 
   const applyNodeForm = useCallback(() => {
     if (!editNode) return;
-    rememberCurrentGraph();
+    rememberCurrentGraph(locale === 'zh' ? '编辑节点' : 'Edit node');
     const targetId = editNode.id;
     const mats = form.materials
       .split(/[\n,，]/)
@@ -400,8 +569,8 @@ export default function App() {
         if (rn.id !== targetId) return rn;
         const d = { ...rn.data.domain };
         d.title = form.title.trim() || d.id;
-        d.office = form.office.trim() || '待补充';
-        d.role = form.role.trim() || '待补充';
+        d.office = form.office.trim() || t.pending;
+        d.role = form.role.trim() || t.pending;
         d.note = form.note.trim() || '';
         d.materials = mats;
         if (d.extendable_fields?.auto_created) {
@@ -410,18 +579,18 @@ export default function App() {
         }
         return {
           ...rn,
-          data: { ...rn.data, domain: d, label: nodeLabel(d) },
+          data: { ...rn.data, domain: d, label: nodeLabel(d, locale) },
         };
       });
       setTimeout(() => putWorkflow(next, edgesRef.current), 0);
       return next;
     });
     setEditNode(null);
-  }, [editNode, form, putWorkflow, rememberCurrentGraph]);
+  }, [editNode, form, putWorkflow, rememberCurrentGraph, locale, t.pending]);
 
   const autoArrangeCurrentGraph = useCallback(() => {
     if (!activeType || nodesRef.current.length === 0) return;
-    rememberCurrentGraph();
+    rememberCurrentGraph(locale === 'zh' ? '自动整理节点' : 'Auto arrange');
     const arranged = autoArrangeNodes(nodesRef.current, edgesRef.current);
     const highlighted = applyHighlightToNodes(arranged, activeType, sessionHighlights);
     setNodes(highlighted);
@@ -431,7 +600,8 @@ export default function App() {
   const undoCanvasEdit = useCallback(() => {
     const arr = historyRef.current[activeType] || [];
     if (!arr.length) return;
-    const prev = arr.pop();
+    const prev = arr.pop()?.snapshot;
+    if (!prev) return;
     historyRef.current[activeType] = arr;
     setUndoDepth(arr.length);
     setEditNode(null);
@@ -441,10 +611,87 @@ export default function App() {
     setTimeout(() => putWorkflow(highlighted, prev.edges), 0);
   }, [activeType, putWorkflow, sessionHighlights, setNodes, setEdges]);
 
+  const rollbackToHistoryEntry = useCallback(
+    (entryIndex) => {
+      const arr = historyRef.current[activeType] || [];
+      const entry = arr[entryIndex];
+      if (!entry?.snapshot) return;
+      historyRef.current[activeType] = arr.slice(0, entryIndex);
+      setUndoDepth(historyRef.current[activeType].length);
+      setEditNode(null);
+      const highlighted = applyHighlightToNodes(entry.snapshot.nodes, activeType, sessionHighlights);
+      setNodes(highlighted);
+      setEdges(entry.snapshot.edges);
+      setTimeout(() => putWorkflow(highlighted, entry.snapshot.edges), 0);
+    },
+    [activeType, putWorkflow, sessionHighlights, setNodes, setEdges],
+  );
+
+  const sendAssistantMessage = useCallback(async () => {
+    const text = chatInput.trim();
+    if (!text && chatFiles.length === 0) return;
+    setAssistantLoading(true);
+    setError('');
+
+    const userMsg = { role: 'user', text: text || (locale === 'zh' ? '（仅上传文件）' : '(files only)') };
+    setChatMessages((prev) => [...prev, userMsg]);
+
+    try {
+      const fd = new FormData();
+      fd.append('message', text || 'Please analyze attached files and update workflow if needed.');
+      chatFiles.forEach((f) => fd.append('files', f));
+
+      const res = await fetch(`${API_BASE}/assistant`, {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await readJsonSafe(res);
+      if (!res.ok) throw new Error(data.error || 'Assistant failed');
+
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: data.reply || '' }]);
+      if (data.workflows) {
+        const beforeCount = Object.values(workflowsRef.current || {}).reduce(
+          (sum, wf) => sum + (wf?.nodes?.length || 0),
+          0,
+        );
+        const afterCount = Object.values(data.workflows || {}).reduce(
+          (sum, wf) => sum + (wf?.nodes?.length || 0),
+          0,
+        );
+        setWorkflows(data.workflows || {});
+        setOperations(data.operations || []);
+        setSessionHighlights(data.highlights || {});
+        historyRef.current = {};
+        setUndoDepth(0);
+        workflowSigRef.current = '';
+        if (afterCount > beforeCount) {
+          setAssistantStage(
+            locale === 'zh'
+              ? `工作流更新成功，新增/调整了 ${afterCount - beforeCount} 个节点。`
+              : `Workflow updated successfully. ${afterCount - beforeCount} node(s) were added/updated.`,
+          );
+        } else {
+          setAssistantStage(locale === 'zh' ? '工作流更新成功。' : 'Workflow updated successfully.');
+        }
+      } else {
+        setAssistantStage(locale === 'zh' ? 'AI 回复完成。' : 'AI response completed.');
+      }
+      setChatInput('');
+      setChatFiles([]);
+    } catch (e) {
+      setError(e.message);
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: `Error: ${e.message}` }]);
+      setAssistantStage(locale === 'zh' ? '处理失败，请稍后重试。' : 'Processing failed. Please try again.');
+    } finally {
+      clearStageTimer();
+      setAssistantLoading(false);
+    }
+  }, [chatInput, chatFiles, locale, clearStageTimer]);
+
   async function submitAnalyze(skipConfirmation = false) {
     setError('');
     if (skipConfirmation && confirmedNewTypes.length === 0) {
-      setError('请至少勾选一个要新增的文件类型，再进行第二步。');
+      setError(t.chooseTypeFirst);
       return;
     }
     setLoading(true);
@@ -458,7 +705,7 @@ export default function App() {
         body: formData,
       });
 
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) throw new Error(data.error || 'Analyze failed');
 
       setNewTypesDetected(data.newTypesDetected || []);
@@ -476,12 +723,17 @@ export default function App() {
       setNewTypesDetected([]);
       setConfirmedNewTypes([]);
       setFiles([]);
+      setChatFiles([]);
+      setShowUploadTools(false);
       workflowSigRef.current = '';
       const keys = Object.keys(data.workflows || {});
       if (keys.length && !keys.includes(activeType)) setActiveType(keys[0]);
+      setAssistantStage(locale === 'zh' ? '文件分析完成，流程已更新。' : 'File analysis completed and workflow updated.');
     } catch (e) {
       setError(e.message);
+      setAssistantStage(locale === 'zh' ? '文件分析失败，请重试。' : 'File analysis failed. Please retry.');
     } finally {
+      clearStageTimer();
       setLoading(false);
     }
   }
@@ -494,7 +746,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operationId }),
       });
-      const data = await res.json();
+      const data = await readJsonSafe(res);
       if (!res.ok) throw new Error(data.error || 'Undo failed');
 
       setWorkflows(data.workflows || {});
@@ -510,33 +762,29 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <div className="topbar">
-        <input
-          type="file"
-          multiple
-          accept=".pdf,.docx,.txt"
-          onChange={(e) => setFiles(Array.from(e.target.files || []))}
-        />
-        <button disabled={loading || files.length === 0} onClick={() => submitAnalyze(false)}>
-          {loading ? 'Analyzing...' : '上传并分析'}
+      <div className="lang-switcher">
+        <button type="button" onClick={() => setLocale('zh')} className={locale === 'zh' ? 'active' : ''}>
+          {I18N.zh.zh}
         </button>
-        <button type="button" onClick={addManualNode} disabled={!activeType} title="在画布上添加新节点">
-          添加节点
+        <button type="button" onClick={() => setLocale('en')} className={locale === 'en' ? 'active' : ''}>
+          {I18N.en.en}
+        </button>
+      </div>
+      <div className="topbar">
+        <button type="button" onClick={addManualNode} disabled={!activeType} title={t.addNode}>
+          {t.addNode}
         </button>
         <button type="button" onClick={autoArrangeCurrentGraph} disabled={!activeType || nodes.length === 0}>
-          自动整理节点
+          {t.autoArrange}
         </button>
         <button type="button" onClick={undoCanvasEdit} disabled={!activeType || undoDepth === 0}>
-          撤销（{undoDepth}）
-        </button>
-        <button type="button" onClick={saveCurrentWorkflow} disabled={!activeType || saving}>
-          {saving ? '保存中…' : '保存当前流程'}
+          {t.undo}（{undoDepth}）
         </button>
       </div>
 
       {newTypesDetected.length > 0 && (
         <div className="confirm-box">
-          <strong>发现新文件类型：</strong>
+          <strong>{t.newTypesFound}</strong>
           {newTypesDetected.map((t) => (
             <label key={t}>
               <input
@@ -552,7 +800,7 @@ export default function App() {
             </label>
           ))}
           <button disabled={loading} onClick={() => submitAnalyze(true)}>
-            确认并继续第二步
+            {t.confirmContinue}
           </button>
         </div>
       )}
@@ -560,7 +808,7 @@ export default function App() {
       {error && <div className="error">{error}</div>}
 
       <div className="content">
-        <div className="main">
+        <div className="main" style={{ width: `calc(100% - ${sidebarWidth}px - 8px)` }}>
           <div className="tabs">
             {Object.keys(workflows).map((type) => (
               <button
@@ -618,54 +866,113 @@ export default function App() {
           </div>
         </div>
 
-        <aside className="sidebar">
-          <div className="node-edit-panel">
-            <h4>编辑节点 {editNode ? `（${editNode.id}）` : ''}</h4>
-            {editNode ? (
-              <>
-                <label>标题 / 名称</label>
-                <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-                <label>负责 Office / 部门</label>
-                <input value={form.office} onChange={(e) => setForm((f) => ({ ...f, office: e.target.value }))} />
-                <label>岗位 / 角色</label>
-                <input value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} />
-                <label>需准备的材料（每行一项或用逗号分隔）</label>
-                <textarea
-                  value={form.materials}
-                  onChange={(e) => setForm((f) => ({ ...f, materials: e.target.value }))}
-                  rows={3}
-                />
-                <label>说明</label>
-                <textarea
-                  value={form.note}
-                  onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))}
-                  rows={2}
-                />
-                <div className="node-edit-actions">
-                  <button type="button" onClick={applyNodeForm}>
-                    保存到节点
+        <div
+          className={`splitter ${isResizing ? 'active' : ''}`}
+          onMouseDown={(e) => {
+            resizeRef.current = { startX: e.clientX, startWidth: sidebarWidth };
+            setIsResizing(true);
+          }}
+        />
+
+        <aside className="sidebar" style={{ width: `${sidebarWidth}px` }}>
+          <div className="side-tabs">
+            <button type="button" className={rightTab === 'assistant' ? 'active' : ''} onClick={() => setRightTab('assistant')}>
+              🤖 AI
+            </button>
+            <button type="button" className={rightTab === 'history' ? 'active' : ''} onClick={() => setRightTab('history')}>
+              🕘 {locale === 'zh' ? '操作历史' : 'History'}
+            </button>
+          </div>
+
+          {rightTab === 'assistant' ? (
+            <div className="assistant-panel">
+              <div className="chat-list">
+                {chatMessages.length === 0 && (
+                  <p className="hint">
+                    {locale === 'zh'
+                      ? '可以和 AI 对话：普通聊天会直接回复；涉及流程修改会自动识别并更新工作流。'
+                      : 'Chat with AI: normal chat gets direct responses; workflow-edit intent triggers workflow updates.'}
+                  </p>
+                )}
+                {chatMessages.map((m, idx) => (
+                  <div key={`${m.role}-${idx}`} className={`chat-msg ${m.role}`}>
+                    <strong>{m.role === 'user' ? (locale === 'zh' ? '你' : 'You') : 'AI'}</strong>
+                    <p>{m.text}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="chat-composer">
+                {assistantStage && <div className="assistant-stage">{assistantStage}</div>}
+                <div className="chat-input-wrap">
+                  <button
+                    type="button"
+                    className="upload-mini"
+                    onClick={() => setShowUploadTools((v) => !v)}
+                    title={locale === 'zh' ? '上传文件' : 'Upload files'}
+                  >
+                    +
                   </button>
-                  <button type="button" className="link" onClick={() => setEditNode(null)}>
-                    取消
+                  <input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendAssistantMessage();
+                      }
+                    }}
+                    placeholder={locale === 'zh' ? '输入消息或流程变更需求…' : 'Type a message or workflow change request...'}
+                  />
+                  <button type="button" onClick={sendAssistantMessage} disabled={assistantLoading || loading}>
+                    {assistantLoading ? (locale === 'zh' ? '发送中…' : 'Sending...') : (locale === 'zh' ? '发送' : 'Send')}
                   </button>
                 </div>
-                <p className="hint">提示：先单击选中节点或连线，再按 Backspace 或 Delete 删除；拖拽连线端点可改接。</p>
-              </>
-            ) : (
-              <p className="hint">单击选中节点或边后按 Delete/Backspace 可删。双击节点编辑，双击连线编分支条件；从节点底部拖线到另一节点顶部可新连。</p>
-            )}
-          </div>
-          <h3>本次操作列表</h3>
-          {operations.length === 0 && <p>暂无操作</p>}
-          {operations.map((op) => (
-            <div className="op-item" key={op.id}>
-              <div>
-                <strong>{op.type}</strong>
-                <p>{op.reason}</p>
+
+                {showUploadTools && (
+                  <div className="upload-tools">
+                    <input
+                      ref={uploadInputRef}
+                      type="file"
+                      multiple
+                      accept=".pdf,.docx,.txt"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const selected = Array.from(e.target.files || []);
+                        setFiles(selected);
+                        setChatFiles(selected);
+                      }}
+                    />
+                    <button type="button" onClick={() => uploadInputRef.current?.click()}>
+                      {locale === 'zh' ? '选取文件' : 'Choose Files'}
+                    </button>
+                    <button type="button" onClick={() => submitAnalyze(false)} disabled={loading || files.length === 0 || assistantLoading}>
+                      {loading ? t.analyzing : t.uploadAnalyze}
+                    </button>
+                  </div>
+                )}
               </div>
-              <button onClick={() => undoOperation(op.id)}>撤回</button>
+              {(chatFiles.length > 0 || files.length > 0) && (
+                <p className="hint">
+                  {locale === 'zh' ? '已附加文件：' : 'Attached files: '}
+                  {[...(chatFiles.length ? chatFiles : files)].map((f) => f.name).join(', ')}
+                </p>
+              )}
             </div>
-          ))}
+          ) : (
+            <div className="history-panel">
+              <h3>{locale === 'zh' ? '最近10步操作' : 'Recent 10 edits'}</h3>
+              {(historyRef.current[activeType] || []).length === 0 && <p>{locale === 'zh' ? '暂无本地历史记录' : 'No local history yet'}</p>}
+              {[...(historyRef.current[activeType] || [])]
+                .map((entry, idx, arr) => ({ entry, idx, seq: arr.length - idx }))
+                .reverse()
+                .map(({ entry, idx, seq }) => (
+                  <button key={`${entry.at}-${idx}`} type="button" className="history-item" onClick={() => rollbackToHistoryEntry(idx)}>
+                    <span>{locale === 'zh' ? `第 ${seq} 步` : `Step ${seq}`}</span>
+                    <small>{entry.label}</small>
+                  </button>
+                ))}
+            </div>
+          )}
         </aside>
       </div>
     </div>
