@@ -32,3 +32,4 @@ npm run dev
 - `server/src`：上传、文本提取、AI 调用、操作应用、撤回 API
 - `client/src`：React Flow 可视化 + 侧边栏
 - `SPEC.md`：当前功能规格说明（功能变更时必须同步更新）
+- `ALGORITHM.md`：从自然语言/文件生成工作流的算法说明（含冲突处理与 corner cases）
