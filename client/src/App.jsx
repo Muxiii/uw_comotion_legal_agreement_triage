@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import ReactFlow, {
   Background,
-  Controls,
+  Panel,
   addEdge,
   useNodesState,
   useEdgesState,
   reconnectEdge,
+  useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import WorkflowNode from './WorkflowNode';
@@ -52,6 +53,10 @@ const I18N = {
     edgeConditionPrompt: '分支条件（可留空表示非条件边）',
     zh: '中文',
     en: 'English',
+    workspace: '工作区',
+    triageBuilder: '流程构建',
+    fitView: '适应画布',
+    redo: '重做',
   },
   en: {
     uploadAnalyze: 'Upload & Analyze',
@@ -82,8 +87,92 @@ const I18N = {
     edgeConditionPrompt: 'Branch condition (leave empty for unconditional edge)',
     zh: '中文',
     en: 'English',
+    workspace: 'WORKSPACE',
+    triageBuilder: 'Triage Builder',
+    fitView: 'Fit view',
+    redo: 'Redo',
   },
 };
+
+function CanvasFloatingToolbar({
+  locale,
+  activeType,
+  undoDepth,
+  redoDepth,
+  nodesLength,
+  onUndo,
+  onRedo,
+  onAddNode,
+  onAutoArrange,
+}) {
+  const { fitView } = useReactFlow();
+  const zh = locale === 'zh';
+  const busy = !activeType;
+  return (
+    <Panel position="bottom-center" className="canvas-float-toolbar">
+      <button
+        type="button"
+        className="canvas-tool-btn"
+        onClick={onUndo}
+        disabled={busy || undoDepth === 0}
+        title={zh ? `${I18N.zh.undo} (${undoDepth})` : `${I18N.en.undo} (${undoDepth})`}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M3 7v6h6" />
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className="canvas-tool-btn"
+        onClick={onRedo}
+        disabled={busy || redoDepth === 0}
+        title={zh ? `${I18N.zh.redo} (${redoDepth})` : `${I18N.en.redo} (${redoDepth})`}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M21 7v6h-6" />
+          <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+        </svg>
+      </button>
+      <span className="canvas-toolbar-divider" />
+      <button
+        type="button"
+        className="canvas-tool-btn"
+        onClick={onAddNode}
+        disabled={busy}
+        title={zh ? I18N.zh.addNode : I18N.en.addNode}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className="canvas-tool-btn"
+        onClick={onAutoArrange}
+        disabled={busy || nodesLength === 0}
+        title={zh ? I18N.zh.autoArrange : I18N.en.autoArrange}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 3v2M12 19v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M3 12h2M19 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        className="canvas-tool-btn"
+        onClick={() => fitView({ padding: 0.2, duration: 200 })}
+        disabled={busy || nodesLength === 0}
+        title={zh ? I18N.zh.fitView : I18N.en.fitView}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+        </svg>
+      </button>
+    </Panel>
+  );
+}
 
 function cloneGraphSnapshot(nodes, edges) {
   return {
@@ -209,7 +298,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [undoDepth, setUndoDepth] = useState(0);
+  const [redoDepth, setRedoDepth] = useState(0);
   const [locale, setLocale] = useState('zh');
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [rightTab, setRightTab] = useState('assistant');
   const [chatInput, setChatInput] = useState('');
   const [chatFiles, setChatFiles] = useState([]);
@@ -227,7 +318,9 @@ export default function App() {
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const historyRef = useRef({});
+  const redoRef = useRef({});
   const uploadInputRef = useRef(null);
+  const langMenuRef = useRef(null);
   const stageTimerRef = useRef(null);
   const resizeRef = useRef({ startX: 0, startWidth: 360 });
   nodesRef.current = nodes;
@@ -284,6 +377,8 @@ export default function App() {
 
   const rememberCurrentGraph = useCallback((label) => {
     if (!activeType) return;
+    redoRef.current[activeType] = [];
+    setRedoDepth(0);
     pushHistorySnapshot(activeType, {
       label,
       graph: cloneGraphSnapshot(nodesRef.current, edgesRef.current),
@@ -340,7 +435,9 @@ export default function App() {
       .then((data) => {
         setWorkflows(data.workflows || {});
         historyRef.current = {};
+        redoRef.current = {};
         setUndoDepth(0);
+        setRedoDepth(0);
         const keys = Object.keys(data.workflows || {});
         if (keys.length) setActiveType((t) => t || keys[0]);
         if (data.latestSession) {
@@ -426,6 +523,19 @@ export default function App() {
   }, [isResizing]);
 
   useEffect(() => () => clearStageTimer(), [clearStageTimer]);
+
+  useEffect(() => {
+    if (!langMenuOpen) return;
+    const onDoc = (e) => {
+      if (!langMenuRef.current?.contains(e.target)) setLangMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [langMenuOpen]);
+
+  useEffect(() => {
+    setRedoDepth((redoRef.current[activeType] || []).length);
+  }, [activeType]);
 
   const addManualNode = useCallback(() => {
     if (!activeType) return;
@@ -602,8 +712,20 @@ export default function App() {
   const undoCanvasEdit = useCallback(() => {
     const arr = historyRef.current[activeType] || [];
     if (!arr.length) return;
-    const prev = arr.pop()?.snapshot;
-    if (!prev) return;
+    const currentSnap = cloneGraphSnapshot(nodesRef.current, edgesRef.current);
+    const redoStack = redoRef.current[activeType] || [];
+    redoStack.push(currentSnap);
+    if (redoStack.length > MAX_HISTORY) redoStack.shift();
+    redoRef.current[activeType] = redoStack;
+    setRedoDepth(redoStack.length);
+    const prevEntry = arr.pop();
+    const prev = prevEntry?.snapshot;
+    if (!prev) {
+      redoStack.pop();
+      redoRef.current[activeType] = redoStack;
+      setRedoDepth(redoStack.length);
+      return;
+    }
     historyRef.current[activeType] = arr;
     setUndoDepth(arr.length);
     setEditNode(null);
@@ -613,6 +735,26 @@ export default function App() {
     setTimeout(() => putWorkflow(highlighted, prev.edges), 0);
   }, [activeType, putWorkflow, sessionHighlights, setNodes, setEdges]);
 
+  const redoCanvasEdit = useCallback(() => {
+    if (!activeType) return;
+    const stack = redoRef.current[activeType] || [];
+    if (!stack.length) return;
+    const toRestore = stack[stack.length - 1];
+    if (!toRestore?.nodes || !toRestore?.edges) return;
+    pushHistorySnapshot(activeType, {
+      label: locale === 'zh' ? '重做' : 'Redo',
+      graph: cloneGraphSnapshot(nodesRef.current, edgesRef.current),
+    });
+    stack.pop();
+    redoRef.current[activeType] = stack;
+    setRedoDepth(stack.length);
+    setEditNode(null);
+    const highlighted = applyHighlightToNodes(toRestore.nodes, activeType, sessionHighlights);
+    setNodes(highlighted);
+    setEdges(toRestore.edges);
+    setTimeout(() => putWorkflow(highlighted, toRestore.edges), 0);
+  }, [activeType, locale, pushHistorySnapshot, putWorkflow, sessionHighlights, setNodes, setEdges]);
+
   const rollbackToHistoryEntry = useCallback(
     (entryIndex) => {
       const arr = historyRef.current[activeType] || [];
@@ -620,6 +762,8 @@ export default function App() {
       if (!entry?.snapshot) return;
       historyRef.current[activeType] = arr.slice(0, entryIndex);
       setUndoDepth(historyRef.current[activeType].length);
+      redoRef.current[activeType] = [];
+      setRedoDepth(0);
       setEditNode(null);
       const highlighted = applyHighlightToNodes(entry.snapshot.nodes, activeType, sessionHighlights);
       setNodes(highlighted);
@@ -664,7 +808,9 @@ export default function App() {
         setOperations(data.operations || []);
         setSessionHighlights(data.highlights || {});
         historyRef.current = {};
+        redoRef.current = {};
         setUndoDepth(0);
+        setRedoDepth(0);
         workflowSigRef.current = '';
         if (afterCount > beforeCount) {
           setAssistantStage(
@@ -719,7 +865,9 @@ export default function App() {
 
       setWorkflows(data.workflows || {});
       historyRef.current = {};
+      redoRef.current = {};
       setUndoDepth(0);
+      setRedoDepth(0);
       setOperations(data.operations || []);
       setSessionHighlights(data.highlights || {});
       setNewTypesDetected([]);
@@ -753,7 +901,9 @@ export default function App() {
 
       setWorkflows(data.workflows || {});
       historyRef.current = {};
+      redoRef.current = {};
       setUndoDepth(0);
+      setRedoDepth(0);
       setOperations(data.operations || []);
       setSessionHighlights(data.highlights || {});
       workflowSigRef.current = '';
@@ -763,42 +913,61 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
-      <div className="lang-switcher">
-        <button type="button" onClick={() => setLocale('zh')} className={locale === 'zh' ? 'active' : ''}>
-          {I18N.zh.zh}
-        </button>
-        <button type="button" onClick={() => setLocale('en')} className={locale === 'en' ? 'active' : ''}>
-          {I18N.en.en}
-        </button>
-      </div>
-      <div className="topbar">
-        <button type="button" onClick={addManualNode} disabled={!activeType} title={t.addNode}>
-          {t.addNode}
-        </button>
-        <button type="button" onClick={autoArrangeCurrentGraph} disabled={!activeType || nodes.length === 0}>
-          {t.autoArrange}
-        </button>
-        <button type="button" onClick={undoCanvasEdit} disabled={!activeType || undoDepth === 0}>
-          {t.undo}（{undoDepth}）
-        </button>
-      </div>
+    <div className="app-shell app-shell--smart">
+      <header className="app-top-header">
+        <div className="app-brand">
+          <span className="app-brand-mark" aria-hidden />
+          <span className="app-brand-name">Smart Triage</span>
+        </div>
+        <div className="app-top-header-right">
+          <div className="lang-dropdown" ref={langMenuRef}>
+            <button type="button" className="lang-dropdown-trigger" onClick={() => setLangMenuOpen((o) => !o)}>
+              {locale === 'zh' ? '简体中文' : 'English'}
+            </button>
+            {langMenuOpen && (
+              <div className="lang-dropdown-menu">
+                <button
+                  type="button"
+                  className={locale === 'en' ? 'active' : ''}
+                  onClick={() => {
+                    setLocale('en');
+                    setLangMenuOpen(false);
+                  }}
+                >
+                  English
+                </button>
+                <button
+                  type="button"
+                  className={locale === 'zh' ? 'active' : ''}
+                  onClick={() => {
+                    setLocale('zh');
+                    setLangMenuOpen(false);
+                  }}
+                >
+                  简体中文
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="header-user-avatar" title="User" />
+        </div>
+      </header>
 
       {newTypesDetected.length > 0 && (
         <div className="confirm-box">
           <strong>{t.newTypesFound}</strong>
-          {newTypesDetected.map((t) => (
-            <label key={t}>
+          {newTypesDetected.map((ft) => (
+            <label key={ft}>
               <input
                 type="checkbox"
-                checked={confirmedNewTypes.includes(t)}
+                checked={confirmedNewTypes.includes(ft)}
                 onChange={(e) => {
                   setConfirmedNewTypes((prev) =>
-                    e.target.checked ? [...prev, t] : prev.filter((item) => item !== t),
+                    e.target.checked ? [...prev, ft] : prev.filter((item) => item !== ft),
                   );
                 }}
               />
-              {t}
+              {ft}
             </label>
           ))}
           <button disabled={loading} onClick={() => submitAnalyze(true)}>
@@ -809,64 +978,95 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
 
-      <div className="content">
-        <div className="main" style={{ width: `calc(100% - ${sidebarWidth}px - 8px)` }}>
-          <div className="tabs">
-            {Object.keys(workflows).map((type) => (
-              <button
-                key={type}
-                className={activeType === type ? 'active' : ''}
-                onClick={() => {
-                  setActiveType(type);
-                  setEditNode(null);
-                }}
-              >
-                {type}
-              </button>
-            ))}
+      <div className="app-workspace">
+        <nav className="leftnav" aria-label="Workspace">
+          <div className="nav-section-label">{t.workspace}</div>
+          <div className="leftnav-block">
+            <div className="leftnav-parent">{t.triageBuilder}</div>
+            <div className="leftnav-children">
+              {Object.keys(workflows).length === 0 && (
+                <span className="leftnav-empty">{locale === 'zh' ? '暂无流程' : 'No flows yet'}</span>
+              )}
+              {Object.keys(workflows).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={`leftnav-item ${activeType === type ? 'active' : ''}`}
+                  onClick={() => {
+                    setActiveType(type);
+                    setEditNode(null);
+                  }}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
           </div>
+        </nav>
 
-          <div className="flow-wrap">
-            {activeType && (
-              <ReactFlow
-                key={activeType}
-                nodeTypes={nodeTypes}
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChangeWithHistory}
-                onEdgesChange={onEdgesChangeWithHistory}
-                onConnect={onConnect}
-                onReconnect={onReconnect}
-                onNodeDragStop={onNodeDragStop}
-                onNodesDelete={onNodesDelete}
-                onEdgesDelete={onEdgesDelete}
-                onNodeDoubleClick={onNodeDoubleClick}
-                onEdgeDoubleClick={onEdgeDoubleClick}
-                onPaneClick={() => {
-                  setEditNode(null);
-                }}
-                defaultEdgeOptions={{
-                  type: 'default',
-                  reconnectable: true,
-                  deletable: true,
-                  markerEnd: DEFAULT_EDGE.markerEnd,
-                  style: DEFAULT_EDGE.style,
-                  labelStyle: DEFAULT_EDGE.labelStyle,
-                }}
-                elementsSelectable
-                nodesDraggable
-                nodesConnectable
-                disableKeyboardA11y={false}
-                connectOnClick={false}
-                onInit={({ fitView }) => {
-                  setTimeout(() => fitView(), 0);
-                }}
-                deleteKeyCode={['Backspace', 'Delete']}
-              >
-                <Background />
-                <Controls />
-              </ReactFlow>
-            )}
+        <div className="center-stage">
+          <div className="canvas-card">
+            <div className="canvas-titlebar">
+              <span className="canvas-title-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+              </span>
+              <span className="canvas-title-text">{activeType || '—'}</span>
+            </div>
+            <div className="flow-wrap">
+              {activeType && (
+                <ReactFlow
+                  key={activeType}
+                  nodeTypes={nodeTypes}
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChangeWithHistory}
+                  onEdgesChange={onEdgesChangeWithHistory}
+                  onConnect={onConnect}
+                  onReconnect={onReconnect}
+                  onNodeDragStop={onNodeDragStop}
+                  onNodesDelete={onNodesDelete}
+                  onEdgesDelete={onEdgesDelete}
+                  onNodeDoubleClick={onNodeDoubleClick}
+                  onEdgeDoubleClick={onEdgeDoubleClick}
+                  onPaneClick={() => {
+                    setEditNode(null);
+                  }}
+                  defaultEdgeOptions={{
+                    type: 'default',
+                    reconnectable: true,
+                    deletable: true,
+                    markerEnd: DEFAULT_EDGE.markerEnd,
+                    style: DEFAULT_EDGE.style,
+                    labelStyle: DEFAULT_EDGE.labelStyle,
+                  }}
+                  elementsSelectable
+                  nodesDraggable
+                  nodesConnectable
+                  disableKeyboardA11y={false}
+                  connectOnClick={false}
+                  onInit={({ fitView }) => {
+                    setTimeout(() => fitView(), 0);
+                  }}
+                  deleteKeyCode={['Backspace', 'Delete']}
+                >
+                  <Background />
+                  <CanvasFloatingToolbar
+                    locale={locale}
+                    activeType={activeType}
+                    undoDepth={undoDepth}
+                    redoDepth={redoDepth}
+                    nodesLength={nodes.length}
+                    onUndo={undoCanvasEdit}
+                    onRedo={redoCanvasEdit}
+                    onAddNode={addManualNode}
+                    onAutoArrange={autoArrangeCurrentGraph}
+                  />
+                </ReactFlow>
+              )}
+            </div>
           </div>
         </div>
 
