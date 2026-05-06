@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon src/index.js",
+    "build": "echo \"triage-builder-server: no compile step\"",
     "start": "node src/index.js"
   },
   "dependencies": {
