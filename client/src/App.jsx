@@ -822,7 +822,7 @@ export default function App() {
           setAssistantStage(locale === 'zh' ? '工作流更新成功。' : 'Workflow updated successfully.');
         }
       } else {
-        setAssistantStage(locale === 'zh' ? 'AI 回复完成。' : 'AI response completed.');
+        setAssistantStage('');
       }
       setChatInput('');
       setChatFiles([]);
@@ -1161,6 +1161,20 @@ export default function App() {
                     </button>
                     <button type="button" onClick={() => submitAnalyze(false)} disabled={loading || files.length === 0 || assistantLoading}>
                       {loading ? t.analyzing : t.uploadAnalyze}
+                    </button>
+                    <button
+                      type="button"
+                      className="upload-tools-close"
+                      onClick={() => {
+                        setShowUploadTools(false);
+                        setFiles([]);
+                        setChatFiles([]);
+                        if (uploadInputRef.current) uploadInputRef.current.value = '';
+                      }}
+                      aria-label={locale === 'zh' ? '关闭上传区域' : 'Close upload tools'}
+                      title={locale === 'zh' ? '关闭' : 'Close'}
+                    >
+                      ×
                     </button>
                   </div>
                 )}
