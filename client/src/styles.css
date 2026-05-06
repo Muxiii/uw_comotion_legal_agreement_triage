@@ -1,23 +1,46 @@
-* { box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Inter, sans-serif; }
-html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
+* { box-sizing: border-box; font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
+
+:root {
+  --purple-900: #3b1360;
+  --purple-800: #4f1f78;
+  --purple-700: #63308e;
+  --purple-600: #7846a6;
+  --purple-500: #8e5fc0;
+  --purple-200: #e4d8f3;
+  --purple-100: #f0e9fa;
+  --purple-50: #f8f4fd;
+  --ink-900: #1f1c2a;
+  --ink-700: #4d465f;
+  --ink-500: #736d87;
+  --ink-400: #8f8aa1;
+  --ink-300: #d8d3e2;
+  --ink-200: #ebe8f1;
+  --ink-100: #f5f3f8;
+  --ink-50: #fbfafe;
+  --canvas-bg: #f8f7fb;
+  --shadow-sm: 0 1px 2px rgba(40, 20, 70, 0.06);
+  --shadow-md: 0 4px 16px -4px rgba(40, 20, 70, 0.12), 0 2px 4px rgba(40, 20, 70, 0.05);
+}
 
 /* ===== 通用：卡片式按钮（不修改组件结构，由区域选择器约束） ===== */
 .app-shell button:not(.link) {
   padding: 0.5rem 1rem;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  border: 1px solid var(--ink-300);
   background: #fff;
-  color: #0f172a;
+  color: var(--ink-900);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--shadow-sm);
   transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .app-shell button:not(.link):hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  background: var(--purple-50);
+  border-color: var(--purple-500);
+  color: var(--purple-800);
+  box-shadow: var(--shadow-md);
 }
 .app-shell button:not(.link):disabled {
   opacity: 0.55;
@@ -27,35 +50,36 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 
 /* 主操作：顶栏前几个 CTA 略强一点 */
 .app-shell .topbar > button:not(.link) {
-  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
-  border-color: #cbd5e1;
+  background: #fff;
+  border-color: var(--ink-300);
 }
 .app-shell .topbar > button:not(.link):hover:not(:disabled) {
-  background: #f1f5f9;
+  background: var(--purple-50);
 }
 
 /* Tab：作为分段卡片按钮 */
 .app-shell .tabs > button {
   padding: 0.45rem 0.9rem;
   border-radius: 9px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--ink-300);
   background: #fff;
   font-size: 13px;
   font-weight: 500;
-  color: #334155;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  color: var(--ink-700);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .app-shell .tabs > button:hover:not(.active) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: var(--purple-50);
+  border-color: var(--purple-500);
+  color: var(--purple-800);
 }
 .app-shell .tabs > button.active {
-  background: #0f172a;
+  background: var(--purple-700);
   color: #fff;
-  border-color: #0f172a;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+  border-color: var(--purple-700);
+  box-shadow: var(--shadow-md);
 }
 
 /* 侧栏：撤回小按钮 */
@@ -75,14 +99,14 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 
 /* 节点编辑：主按钮略强调 */
 .app-shell .node-edit-actions > button:not(.link) {
-  background: #0f172a;
+  background: var(--purple-700);
   color: #fff;
-  border-color: #0f172a;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  border-color: var(--purple-700);
+  box-shadow: var(--shadow-md);
 }
 .app-shell .node-edit-actions > button:not(.link):hover {
-  background: #1e293b;
-  border-color: #1e293b;
+  background: var(--purple-800);
+  border-color: var(--purple-800);
 }
 
 /* 链式“取消”保持文字按钮，仅略增可点区域 */
@@ -93,19 +117,19 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   border: none;
   box-shadow: none;
   text-decoration: underline;
-  color: #64748b;
+  color: var(--ink-500);
   font-weight: 500;
 }
 .app-shell button.link:hover {
-  color: #0f172a;
-  background: #f1f5f9;
+  color: var(--purple-800);
+  background: var(--purple-50);
 }
 
-.config-page { height: 100%; display: flex; align-items: center; justify-content: center; background: #f1f5f9; }
-.panel { width: 420px; background: white; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04); }
+.config-page { height: 100%; display: flex; align-items: center; justify-content: center; background: var(--ink-100); }
+.panel { width: 420px; background: white; border-radius: 12px; padding: 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: var(--shadow-md), 0 0 0 1px rgba(40, 20, 70, 0.06); }
 .panel h1 { margin: 0 0 8px; }
-.panel input, .panel select, .panel button { padding: 10px; border: 1px solid #e2e8f0; border-radius: 10px; }
-.panel button { background: #0f172a; color: white; border: none; cursor: pointer; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12); }
+.panel input, .panel select, .panel button { padding: 10px; border: 1px solid var(--ink-300); border-radius: 8px; }
+.panel button { background: var(--purple-700); color: white; border: none; cursor: pointer; box-shadow: var(--shadow-md); }
 
 .app-shell {
   height: 100%;
@@ -132,8 +156,8 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   flex-wrap: wrap;
   padding: 12px 16px;
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(40, 20, 70, 0.05);
   padding-right: 170px;
 }
 .topbar input[type='file'] {
@@ -157,8 +181,8 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   flex-direction: column;
   min-height: 0;
   background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(40, 20, 70, 0.05);
   overflow: hidden;
 }
 
@@ -168,23 +192,25 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   padding: 10px 12px;
   flex-wrap: wrap;
   align-items: center;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  border-bottom: 1px solid var(--ink-200);
 }
 
 .flow-wrap {
-  --flow-canvas-bg: #fafbfc;
+  --flow-canvas-bg: var(--canvas-bg);
   flex: 1;
   min-height: 400px;
   min-width: 0;
   background: var(--flow-canvas-bg);
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--ink-200);
+  background-image: radial-gradient(circle, var(--ink-200) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 .sidebar {
-  border-radius: 14px;
+  border-radius: 10px;
   background: #fff;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--shadow-md), 0 0 0 1px rgba(40, 20, 70, 0.05);
   padding: 14px 16px;
   overflow: auto;
   display: flex;
@@ -198,12 +224,12 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   cursor: col-resize;
   margin: 0 2px;
   border-radius: 8px;
-  background: #e2e8f0;
+  background: var(--ink-200);
   transition: background 0.12s ease;
 }
 .splitter:hover,
 .splitter.active {
-  background: #bae6fd;
+  background: var(--purple-200);
 }
 
 .side-tabs {
@@ -221,9 +247,9 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 }
 
 .chat-list {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #f8fafc;
+  border: 1px solid var(--ink-200);
+  border-radius: 8px;
+  background: var(--ink-50);
   padding: 8px;
   min-height: 160px;
   flex: 1;
@@ -236,10 +262,12 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   margin-bottom: 8px;
 }
 .chat-msg.user {
-  background: #e2e8f0;
+  background: var(--purple-700);
+  color: #fff;
 }
 .chat-msg.assistant {
-  background: #eef2ff;
+  background: var(--purple-50);
+  border: 1px solid var(--purple-200);
 }
 .chat-msg p {
   margin: 6px 0 0;
@@ -249,15 +277,16 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 .chat-composer {
   margin-top: auto;
   padding: 10px 0 4px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--ink-200);
+  background: var(--ink-50);
 }
 
 .assistant-stage {
   margin-bottom: 8px;
   font-size: 12px;
-  color: #0369a1;
-  background: #e0f2fe;
-  border: 1px solid #bae6fd;
+  color: var(--purple-800);
+  background: var(--purple-50);
+  border: 1px solid var(--purple-200);
   border-radius: 8px;
   padding: 6px 8px;
 }
@@ -269,15 +298,21 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 }
 .chat-input-wrap input {
   flex: 1;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--ink-300);
   border-radius: 8px;
   padding: 8px 10px;
+  background: #fff;
+}
+.chat-input-wrap input:focus {
+  outline: none;
+  border-color: var(--purple-600);
+  box-shadow: 0 0 0 3px var(--purple-100);
 }
 
 .upload-mini {
   width: 30px;
   height: 30px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--ink-300);
   border-radius: 8px;
   background: #fff;
   display: inline-flex;
@@ -301,7 +336,7 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   gap: 2px;
 }
 .history-item small {
-  color: #64748b;
+  color: var(--ink-500);
 }
 
 .op-item {
@@ -321,8 +356,8 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 
 .confirm-box {
   padding: 12px 16px;
-  border: 1px solid #fcd34d;
-  background: #fffbeb;
+  border: 1px solid #eed49a;
+  background: #fdf8ee;
   border-radius: 12px;
   display: flex;
   gap: 12px;
@@ -336,38 +371,38 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   border: 1px solid #fecaca;
   background: #fef2f2;
   color: #991b1b;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 14px;
   box-shadow: 0 1px 4px rgba(239, 68, 68, 0.1);
 }
 
 .node-edit-panel {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--ink-200);
   margin-bottom: 12px;
   padding-bottom: 14px;
-  background: #fafbfc;
+  background: var(--ink-50);
   margin: -4px -8px 12px;
   padding: 12px 12px 14px;
-  border-radius: 12px;
-  border: 1px solid #f1f5f9;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  border-radius: 8px;
+  border: 1px solid var(--ink-200);
+  box-shadow: var(--shadow-sm);
 }
-.node-edit-panel h4 { margin: 0 0 10px; font-size: 14px; color: #0f172a; }
-.node-edit-panel label { display: block; font-size: 12px; color: #64748b; margin-top: 6px; font-weight: 500; }
-.node-edit-panel input, .node-edit-panel textarea { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; background: #fff; }
+.node-edit-panel h4 { margin: 0 0 10px; font-size: 14px; color: var(--ink-900); }
+.node-edit-panel label { display: block; font-size: 12px; color: var(--ink-500); margin-top: 6px; font-weight: 500; }
+.node-edit-panel input, .node-edit-panel textarea { width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px; border: 1px solid var(--ink-300); border-radius: 8px; font-size: 12px; background: #fff; }
 .node-edit-panel input:focus, .node-edit-panel textarea:focus {
   outline: none;
-  border-color: #94a3b8;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.2);
+  border-color: var(--purple-600);
+  box-shadow: 0 0 0 3px var(--purple-100);
 }
 .node-edit-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
-.hint { font-size: 12px; color: #64748b; line-height: 1.4; }
+.hint { font-size: 12px; color: var(--ink-500); line-height: 1.4; }
 
-.sidebar h3 { margin: 0 0 10px; font-size: 14px; color: #0f172a; }
+.sidebar h3 { margin: 0 0 10px; font-size: 14px; color: var(--ink-900); }
 
 /* 画布内自定义节点 */
 .react-flow__node.selected .workflow-node-inner {
-  outline: 2px solid #0ea5e9;
+  outline: 2px solid var(--purple-600);
   outline-offset: 0;
 }
 .workflow-node-inner {
@@ -375,6 +410,7 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
   border-radius: 8px;
   box-sizing: border-box;
   padding: 0;
+  position: relative;
 }
 .workflow-node-inner > div {
   font-size: 12px;
@@ -414,7 +450,7 @@ html, body, #root { margin: 0; height: 100%; background: #f1f5f9; }
 .flow-wrap .react-flow__node .react-flow__handle.connecting,
 .flow-wrap .react-flow__node .react-flow__handle.valid {
   background: var(--flow-canvas-bg) !important;
-  border: 1px solid #0ea5e9 !important;
+  border: 1px solid var(--purple-600) !important;
   box-shadow: none !important;
 }
 

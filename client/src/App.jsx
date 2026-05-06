@@ -840,7 +840,9 @@ export default function App() {
                 onEdgesDelete={onEdgesDelete}
                 onNodeDoubleClick={onNodeDoubleClick}
                 onEdgeDoubleClick={onEdgeDoubleClick}
-                onPaneClick={() => setEditNode(null)}
+                onPaneClick={() => {
+                  setEditNode(null);
+                }}
                 defaultEdgeOptions={{
                   type: 'default',
                   reconnectable: true,
