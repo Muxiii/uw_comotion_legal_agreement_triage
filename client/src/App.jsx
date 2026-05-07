@@ -10,12 +10,14 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import WorkflowNode from './WorkflowNode';
+import WrappedEdge from './WrappedEdge';
 import {
   workflowToFlowElements,
   flowElementsToWorkflow,
   DEFAULT_EDGE,
   nodeLabel,
   getWorkflowNodeClassName,
+  edgeDisplayCondition,
 } from './flowUtils.js';
 import aiChatIcon from './assets/icons/ai-chat-icon.svg';
 import operationHistoryIcon from './assets/icons/operation-history-icon.svg';
@@ -23,6 +25,7 @@ import { WorkflowGraphContext } from './WorkflowGraphContext.jsx';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || 'http://localhost:4000/api').replace(/\/$/, '');
 const nodeTypes = { workflowNode: WorkflowNode };
+const edgeTypes = { wrapped: WrappedEdge };
 const MAX_HISTORY = 10;
 const I18N = {
   zh: {
@@ -39,7 +42,8 @@ const I18N = {
     noOps: '暂无操作',
     rollback: '撤回',
     editNode: '编辑节点',
-    title: '标题 / 名称',
+    titleZh: '标题（中文）',
+    titleEn: '标题（英文，选填）',
     office: '负责 Office / 部门',
     role: '岗位 / 角色',
     materials: '需准备的材料（每行一项或用逗号分隔）',
@@ -55,6 +59,10 @@ const I18N = {
     deleteNodeShort: '删除节点',
     deleteNode: '删除',
     deleteNodeConfirmAgain: '再次确认删除该节点？此操作无法撤销。',
+    editEdge: '编辑连线',
+    edgeConditionZh: '连线条件（中文）',
+    edgeConditionEn: '连线条件（英文，选填）',
+    saveEdge: '保存连线',
     newNodeTitle: '新节点',
     pending: '待补充',
     chooseTypeFirst: '请至少勾选一个要新增的文件类型，再进行第二步。',
@@ -81,7 +89,8 @@ const I18N = {
     noOps: 'No operations yet',
     rollback: 'Undo',
     editNode: 'Edit Node',
-    title: 'Title',
+    titleZh: 'Title (Chinese)',
+    titleEn: 'Title (English, optional)',
     office: 'Office / Department',
     role: 'Role',
     materials: 'Required materials (one per line or comma-separated)',
@@ -97,6 +106,10 @@ const I18N = {
     deleteNodeShort: 'Delete node',
     deleteNode: 'Delete',
     deleteNodeConfirmAgain: 'Confirm again to delete this node? This cannot be undone.',
+    editEdge: 'Edit Edge',
+    edgeConditionZh: 'Edge condition (Chinese)',
+    edgeConditionEn: 'Edge condition (English, optional)',
+    saveEdge: 'Save Edge',
     newNodeTitle: 'New Node',
     pending: 'Pending',
     chooseTypeFirst: 'Please select at least one new file type before continuing to step 2.',
@@ -332,6 +345,9 @@ export default function App() {
   const [editNode, setEditNode] = useState(null);
   /** 打开节点编辑时的表单快照，用于放弃修改 / 切换节点前对比 */
   const [draftBaseline, setDraftBaseline] = useState(null);
+  const [editEdge, setEditEdge] = useState(null);
+  const [edgeForm, setEdgeForm] = useState({ condition: '', conditionEn: '' });
+  const [edgeDraftBaseline, setEdgeDraftBaseline] = useState(null);
   const workflowSigRef = useRef('');
   const workflowsRef = useRef(workflows);
   workflowsRef.current = workflows;
@@ -346,7 +362,7 @@ export default function App() {
   nodesRef.current = nodes;
   edgesRef.current = edges;
 
-  const [form, setForm] = useState({ title: '', office: '', role: '', note: '', materials: '' });
+  const [form, setForm] = useState({ title: '', titleEn: '', office: '', role: '', note: '', materials: '' });
   const t = I18N[locale];
 
   const clearStageTimer = useCallback(() => {
@@ -497,7 +513,13 @@ export default function App() {
         return { ...n, data: { ...n.data, label: nodeLabel(d, locale) } };
       }),
     );
-  }, [locale, setNodes]);
+    setEdges((prev) =>
+      prev.map((e) => ({
+        ...e,
+        label: edgeDisplayCondition({ condition: e.data?.condition, condition_en: e.data?.condition_en }, locale),
+      })),
+    );
+  }, [locale, setNodes, setEdges]);
 
   useEffect(() => {
     if (!assistantLoading) return;
@@ -580,7 +602,7 @@ export default function App() {
     setNodes(n2);
     setEdges(e);
     setEditNode({ ...domain });
-    const baseline = { title: t.newNodeTitle, office: t.pending, role: t.pending, note: '', materials: '' };
+    const baseline = { title: t.newNodeTitle, titleEn: '', office: t.pending, role: t.pending, note: '', materials: '' };
     setForm(baseline);
     setDraftBaseline({ ...baseline });
     setTimeout(() => putWorkflow(n2, e), 0);
@@ -596,7 +618,7 @@ export default function App() {
             ...DEFAULT_EDGE,
             sourceHandle: 's',
             targetHandle: 't',
-            data: { condition: null },
+            data: { condition: null, condition_en: null },
             label: '',
             id: `e-${params.source}-${params.target}-${Date.now()}`,
           },
@@ -636,10 +658,14 @@ export default function App() {
   const onNodesDelete = useCallback(() => {
     setEditNode(null);
     setDraftBaseline(null);
+    setEditEdge(null);
+    setEdgeDraftBaseline(null);
     setTimeout(() => putWorkflow(nodesRef.current, edgesRef.current), 0);
   }, [putWorkflow]);
 
   const onEdgesDelete = useCallback(() => {
+    setEditEdge(null);
+    setEdgeDraftBaseline(null);
     setTimeout(() => putWorkflow(nodesRef.current, edgesRef.current), 0);
   }, [putWorkflow]);
 
@@ -665,14 +691,32 @@ export default function App() {
         const dirty =
           draftBaseline != null && JSON.stringify(form) !== JSON.stringify(draftBaseline);
         if (dirty && !force) {
-          if (!window.confirm(t.discardChangesConfirm)) return;
+          if (!window.confirm(t.discardChangesConfirm)) return false;
         }
       }
       setEditNode(null);
       setDraftBaseline(null);
       setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+      return true;
     },
     [editNode, draftBaseline, form, t.discardChangesConfirm, setNodes],
+  );
+
+  const exitEdgeEditor = useCallback(
+    (force = false) => {
+      if (editEdge) {
+        const dirty =
+          edgeDraftBaseline != null && JSON.stringify(edgeForm) !== JSON.stringify(edgeDraftBaseline);
+        if (dirty && !force) {
+          if (!window.confirm(t.discardChangesConfirm)) return false;
+        }
+      }
+      setEditEdge(null);
+      setEdgeDraftBaseline(null);
+      setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
+      return true;
+    },
+    [editEdge, edgeDraftBaseline, edgeForm, t.discardChangesConfirm, setEdges],
   );
 
   const onNodeClick = useCallback(
@@ -680,9 +724,11 @@ export default function App() {
       const d = n.data?.domain;
       if (!d) return;
       if (editNode?.id === d.id) return;
+      if (!exitEdgeEditor(false)) return;
       const open = () => {
         const nextForm = {
           title: d.title || '',
+          titleEn: d.title_en || '',
           office: d.office || '',
           role: d.role || '',
           note: d.note || '',
@@ -699,7 +745,22 @@ export default function App() {
       }
       open();
     },
-    [editNode, draftBaseline, form, t.discardChangesConfirm],
+    [editNode, draftBaseline, form, t.discardChangesConfirm, exitEdgeEditor],
+  );
+
+  const onEdgeClick = useCallback(
+    (_evt, edge) => {
+      if (editEdge?.id === edge.id) return;
+      if (!exitNodeEditor(false)) return;
+      const nextForm = {
+        condition: edge.data?.condition || '',
+        conditionEn: edge.data?.condition_en || '',
+      };
+      setEditEdge(edge);
+      setEdgeForm(nextForm);
+      setEdgeDraftBaseline({ ...nextForm });
+    },
+    [editEdge, exitNodeEditor],
   );
 
   const performDeleteNode = useCallback(
@@ -707,6 +768,8 @@ export default function App() {
       rememberCurrentGraph(locale === 'zh' ? '删除节点' : 'Delete node');
       setEditNode(null);
       setDraftBaseline(null);
+      setEditEdge(null);
+      setEdgeDraftBaseline(null);
       const nextNodes = nodesRef.current.filter((n) => n.id !== nodeId);
       const nextEdges = edgesRef.current.filter((e) => e.source !== nodeId && e.target !== nodeId);
       setNodes(nextNodes);
@@ -735,21 +798,34 @@ export default function App() {
     exitNodeEditor(false);
   }, [exitNodeEditor]);
 
-  const onEdgeDoubleClick = useCallback(
-    (_evt, edge) => {
-      const current = edge.data?.condition != null && edge.data?.condition !== '' ? String(edge.data.condition) : (edge.label && String(edge.label)) || '';
-      const value = window.prompt(t.edgeConditionPrompt, current);
-      if (value === null) return;
-      rememberCurrentGraph(locale === 'zh' ? '编辑分支条件' : 'Edit edge condition');
-      const v = value.trim() || null;
-      setEdges((eds) => {
-        const next = eds.map((e) => (e.id === edge.id ? { ...e, data: { ...e.data, condition: v }, label: v || '' } : e));
-        setTimeout(() => putWorkflow(nodesRef.current, next), 0);
-        return next;
+  const cancelEdgeForm = useCallback(() => {
+    exitEdgeEditor(false);
+  }, [exitEdgeEditor]);
+
+  const applyEdgeForm = useCallback(() => {
+    if (!editEdge?.id) return;
+    rememberCurrentGraph(locale === 'zh' ? '编辑分支条件' : 'Edit edge condition');
+    setEdges((prev) => {
+      const next = prev.map((e) => {
+        if (e.id !== editEdge.id) return { ...e, selected: false };
+        const nextData = {
+          ...(e.data || {}),
+          condition: edgeForm.condition.trim() || null,
+          condition_en: edgeForm.conditionEn.trim() || null,
+        };
+        return {
+          ...e,
+          selected: false,
+          data: nextData,
+          label: edgeDisplayCondition(nextData, locale),
+        };
       });
-    },
-    [setEdges, putWorkflow, rememberCurrentGraph, t.edgeConditionPrompt],
-  );
+      setTimeout(() => putWorkflow(nodesRef.current, next), 0);
+      return next;
+    });
+    setEditEdge(null);
+    setEdgeDraftBaseline(null);
+  }, [editEdge, edgeForm, rememberCurrentGraph, locale, putWorkflow, setEdges]);
 
   const applyNodeForm = useCallback(() => {
     if (!editNode) return;
@@ -764,6 +840,9 @@ export default function App() {
         if (rn.id !== targetId) return { ...rn, selected: false };
         const d = { ...rn.data.domain };
         d.title = form.title.trim() || d.id;
+        const te = form.titleEn.trim();
+        if (te) d.title_en = te;
+        else delete d.title_en;
         d.office = form.office.trim() || t.pending;
         d.role = form.role.trim() || t.pending;
         d.note = form.note.trim() || '';
@@ -783,6 +862,8 @@ export default function App() {
     });
     setDraftBaseline(null);
     setEditNode(null);
+    setEditEdge(null);
+    setEdgeDraftBaseline(null);
   }, [editNode, form, putWorkflow, rememberCurrentGraph, locale, t.pending]);
 
   const autoArrangeCurrentGraph = useCallback(() => {
@@ -815,6 +896,8 @@ export default function App() {
     setUndoDepth(arr.length);
     setEditNode(null);
     setDraftBaseline(null);
+    setEditEdge(null);
+    setEdgeDraftBaseline(null);
     const highlighted = applyHighlightToNodes(prev.nodes, activeType, sessionHighlights);
     setNodes(highlighted);
     setEdges(prev.edges);
@@ -836,6 +919,8 @@ export default function App() {
     setRedoDepth(stack.length);
     setEditNode(null);
     setDraftBaseline(null);
+    setEditEdge(null);
+    setEdgeDraftBaseline(null);
     const highlighted = applyHighlightToNodes(toRestore.nodes, activeType, sessionHighlights);
     setNodes(highlighted);
     setEdges(toRestore.edges);
@@ -853,6 +938,8 @@ export default function App() {
       setRedoDepth(0);
       setEditNode(null);
       setDraftBaseline(null);
+      setEditEdge(null);
+      setEdgeDraftBaseline(null);
       const highlighted = applyHighlightToNodes(entry.snapshot.nodes, activeType, sessionHighlights);
       setNodes(highlighted);
       setEdges(entry.snapshot.edges);
@@ -1093,6 +1180,8 @@ export default function App() {
                     setActiveType(type);
                     setEditNode(null);
                     setDraftBaseline(null);
+                    setEditEdge(null);
+                    setEdgeDraftBaseline(null);
                   }}
                 >
                   {type}
@@ -1118,6 +1207,7 @@ export default function App() {
                 <ReactFlow
                   key={activeType}
                   nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
                   nodes={nodes}
                   edges={edges}
                   onNodesChange={onNodesChangeWithHistory}
@@ -1128,9 +1218,11 @@ export default function App() {
                   onNodesDelete={onNodesDelete}
                   onEdgesDelete={onEdgesDelete}
                   onNodeClick={onNodeClick}
-                  onEdgeDoubleClick={onEdgeDoubleClick}
+                  onEdgeClick={onEdgeClick}
                   onPaneClick={() => {
-                    exitNodeEditor(false);
+                    const okNode = exitNodeEditor(false);
+                    if (!okNode) return;
+                    exitEdgeEditor(false);
                   }}
                   defaultEdgeOptions={{
                     type: 'default',
@@ -1177,8 +1269,10 @@ export default function App() {
         />
 
         <aside className="sidebar" style={{ width: `${sidebarWidth}px` }}>
-          {editNode ? (
+          {editNode || editEdge ? (
             <div className="node-edit-sidebar">
+              {editNode ? (
+                <>
               <h3 className="node-edit-sidebar-title">{t.editNode}</h3>
               <p className="node-edit-sidebar-id">
                 <span className="node-edit-id-label">{t.nodeIdLabel}</span>{' '}
@@ -1186,11 +1280,20 @@ export default function App() {
               </p>
               <div className="node-edit-panel node-edit-panel--sidebar">
                 <label htmlFor="node-field-title">
-                  {t.title}
+                  {t.titleZh}
                   <input
                     id="node-field-title"
                     value={form.title}
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    autoComplete="off"
+                  />
+                </label>
+                <label htmlFor="node-field-title-en">
+                  {t.titleEn}
+                  <input
+                    id="node-field-title-en"
+                    value={form.titleEn}
+                    onChange={(e) => setForm((f) => ({ ...f, titleEn: e.target.value }))}
                     autoComplete="off"
                   />
                 </label>
@@ -1243,6 +1346,45 @@ export default function App() {
                   {t.saveNode}
                 </button>
               </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="node-edit-sidebar-title">{t.editEdge}</h3>
+                  <p className="node-edit-sidebar-id">
+                    <span className="node-edit-id-label">{t.nodeIdLabel}</span>{' '}
+                    <span className="node-edit-id-value">{editEdge?.source} {'->'} {editEdge?.target}</span>
+                  </p>
+                  <div className="node-edit-panel node-edit-panel--sidebar">
+                    <label htmlFor="edge-field-condition-zh">
+                      {t.edgeConditionZh}
+                      <input
+                        id="edge-field-condition-zh"
+                        value={edgeForm.condition}
+                        onChange={(e) => setEdgeForm((f) => ({ ...f, condition: e.target.value }))}
+                        autoComplete="off"
+                      />
+                    </label>
+                    <label htmlFor="edge-field-condition-en">
+                      {t.edgeConditionEn}
+                      <input
+                        id="edge-field-condition-en"
+                        value={edgeForm.conditionEn}
+                        onChange={(e) => setEdgeForm((f) => ({ ...f, conditionEn: e.target.value }))}
+                        autoComplete="off"
+                      />
+                    </label>
+                  </div>
+                  <div className="node-edit-actions">
+                    <button type="button" className="link" onClick={cancelEdgeForm}>
+                      {t.cancel}
+                    </button>
+                    <span className="node-edit-actions-spacer" aria-hidden />
+                    <button type="button" className="node-edit-save-btn" onClick={applyEdgeForm}>
+                      {t.saveEdge}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <>

@@ -1,7 +1,13 @@
 import { isObject } from './nodeSchema.js';
 
+function normalizeNullableText(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
+}
+
 /**
- * 从边推断缺失节点，并去重边（相同 from+to+condition 只保留一条）
+ * 从边推断缺失节点，并去重边（相同 from+to+condition+condition_en 只保留一条）
  */
 export function ensureNodesMatchEdges(workflow, fileTypeKey = '') {
   if (!workflow || !isObject(workflow)) return;
@@ -14,13 +20,16 @@ export function ensureNodesMatchEdges(workflow, fileTypeKey = '') {
 
   for (const e of workflow.edges) {
     if (!e || typeof e.from !== 'string' || typeof e.to !== 'string') continue;
-    const key = `${e.from}\0${e.to}\0${e.condition ?? ''}`;
+    const condition = normalizeNullableText(e.condition);
+    const conditionEn = normalizeNullableText(e.condition_en);
+    const key = `${e.from}\0${e.to}\0${condition ?? ''}\0${conditionEn ?? ''}`;
     if (seenEdge.has(key)) continue;
     seenEdge.add(key);
     deduped.push({
       from: e.from,
       to: e.to,
-      condition: e.condition ?? null,
+      condition,
+      condition_en: conditionEn,
     });
   }
   workflow.edges = deduped;

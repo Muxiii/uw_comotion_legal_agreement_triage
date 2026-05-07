@@ -910,12 +910,19 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   box-shadow: none;
 }
 .workflow-node-inner > div {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.4;
   text-align: left;
   user-select: none;
   white-space: pre-line;
   padding: 8px 10px;
+  color: var(--ink-500);
+}
+
+.workflow-node-inner > div::first-line {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-900);
 }
 
 /* 连接点：8px 圆；填充=画布底；描边=对应节点外框颜色 */
@@ -964,4 +971,22 @@ html, body, #root { margin: 0; height: 100%; background: var(--ink-100); }
   left: 50% !important;
   right: auto !important;
   transform: translate(-50%, 50%) !important;
+}
+
+/* 连线标签支持换行显示 */
+.flow-wrap .react-flow__edge-text {
+  white-space: pre-line;
+}
+
+.workflow-edge-label {
+  position: absolute;
+  max-width: 160px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: center;
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.3;
+  transform-origin: center;
+  pointer-events: none;
 }

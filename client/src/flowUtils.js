@@ -1,7 +1,7 @@
 import { MarkerType } from 'reactflow';
 
 const DEFAULT_EDGE = {
-  type: 'default',
+  type: 'wrapped',
   markerEnd: { type: MarkerType.ArrowClosed },
   reconnectable: true,
   deletable: true,
@@ -9,11 +9,61 @@ const DEFAULT_EDGE = {
   labelStyle: { fill: '#0f172a', fontSize: 12 },
 };
 
+/** 画布上显示的标题：中文用 title；英文优先 title_en，否则回退 title */
+export function nodeDisplayTitle(n, locale = 'zh') {
+  const id = n?.id || '';
+  if (locale === 'en') {
+    const en = typeof n.title_en === 'string' ? n.title_en.trim() : '';
+    if (en) return en;
+  }
+  const primary = typeof n.title === 'string' ? n.title.trim() : '';
+  return primary || id;
+}
+
 export function nodeLabel(n, locale = 'zh') {
-  const title = n.title || n.id;
+  const title = nodeDisplayTitle(n, locale);
   const mats = Array.isArray(n.materials) && n.materials.length ? n.materials.join(locale === 'zh' ? '、' : ', ') : locale === 'zh' ? '（材料待列）' : '(materials pending)';
   const materialsLabel = locale === 'zh' ? '材料' : 'Materials';
-  return `${title}\n${n.office || '—'} · ${n.role || '—'}\n${materialsLabel}: ${mats}\n${n.note || ''}`.trim();
+  return `${title}\n${n.office || '—'} · ${n.role || '—'}\n${materialsLabel}: ${mats}`;
+}
+
+/** 连线显示文案：英文优先 condition_en，否则回退 condition */
+export function edgeDisplayCondition(edgeLike, locale = 'zh') {
+  const zh = typeof edgeLike?.condition === 'string' ? edgeLike.condition.trim() : '';
+  const en = typeof edgeLike?.condition_en === 'string' ? edgeLike.condition_en.trim() : '';
+  const raw = locale === 'en' ? en || zh || '' : zh || en || '';
+  return wrapEdgeLabel(raw);
+}
+
+function wrapEdgeLabel(text) {
+  if (!text) return '';
+  const hasWhitespace = /\s/.test(text);
+  const maxLen = hasWhitespace ? 24 : 14;
+  if (text.length <= maxLen) return text;
+  if (!hasWhitespace) {
+    const lines = [];
+    for (let i = 0; i < text.length; i += maxLen) lines.push(text.slice(i, i + maxLen));
+    return lines.join('\n');
+  }
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= maxLen) current = next;
+    else {
+      if (current) lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.join('\n');
+}
+
+function normalizeNullableText(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  return text || null;
 }
 
 /** 与节点填充/描边色一致，供连接点样式用 */
@@ -88,15 +138,18 @@ export function workflowToFlowElements(workflow, highlights = [], locale = 'zh')
     };
   });
   const edges = (workflow?.edges || []).map((e, idx) => {
-    const cond = e.condition ?? '';
+    const cond = edgeDisplayCondition(e, locale);
     return {
-      id: `e-${e.from}-${e.to}-${cond}-${idx}`,
+      id: `e-${e.from}-${e.to}-${e.condition ?? ''}-${idx}`,
       source: e.from,
       target: e.to,
       sourceHandle: 's',
       targetHandle: 't',
       label: cond,
-      data: { condition: e.condition },
+      data: {
+        condition: normalizeNullableText(e.condition),
+        condition_en: normalizeNullableText(e.condition_en),
+      },
       ...DEFAULT_EDGE,
     };
   });
@@ -136,17 +189,19 @@ export function flowElementsToWorkflow(rfNodes, rfEdges, previousWorkflow) {
     if (typeof domain.role !== 'string') domain.role = '待补充';
     if (typeof domain.note !== 'string') domain.note = '';
     if (typeof domain.title !== 'string') domain.title = domain.id;
+    if (domain.title_en != null && typeof domain.title_en !== 'string') domain.title_en = '';
     prevById.set(domain.id, domain);
   }
   const usedIds = new Set(rfNodes.map((n) => n.id));
   const nodes = [...usedIds].map((id) => prevById.get(id));
   const edges = rfEdges.map((e) => {
-    const cond = e.data?.condition;
-    if (cond !== undefined && cond !== null) {
-      return { from: e.source, to: e.target, condition: String(cond).trim() || null };
+    const cond = normalizeNullableText(e.data?.condition);
+    const condEn = normalizeNullableText(e.data?.condition_en);
+    if (e.data?.condition !== undefined || e.data?.condition_en !== undefined) {
+      return { from: e.source, to: e.target, condition: cond, condition_en: condEn };
     }
     const fromLabel = typeof e.label === 'string' ? e.label.trim() : '';
-    return { from: e.source, to: e.target, condition: fromLabel || null };
+    return { from: e.source, to: e.target, condition: fromLabel || null, condition_en: null };
   });
   return { nodes, edges };
 }
